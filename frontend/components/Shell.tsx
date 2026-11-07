@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 const links = [
   { href: "/", label: "Dashboard", ja: "経営サマリー" },
   { href: "/customers", label: "Customers", ja: "顧客一覧" },
-  { href: "/invoices", label: "Register", ja: "請求書台帳" },
+  { href: "/invoices", label: "Invoices", ja: "請求書" },
   { href: "/settings", label: "Settings", ja: "設定" },
   { href: "/audit", label: "Audit log", ja: "操作履歴" },
 ];

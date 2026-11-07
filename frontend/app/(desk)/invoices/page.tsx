@@ -91,7 +91,7 @@ export default function InvoicesPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="kicker">Invoice Register 請求書台帳</div>
+          <div className="kicker">Invoices 請求書</div>
           <h1>Finalized invoices</h1>
           <p>Payments update the balance. Issued numbers stay on the record.</p>
         </div>
