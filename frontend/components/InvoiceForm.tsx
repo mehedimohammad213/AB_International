@@ -26,6 +26,7 @@ function initialLines(draft?: Draft | null, invoice?: Invoice | null) {
 export default function InvoiceForm({ customers, units, settings, draft, invoice }: Props) {
   const router = useRouter();
   const editingInvoice = Boolean(invoice);
+  const creatingInvoice = !invoice && !draft;
   const [invoiceDate, setInvoiceDate] = useState(invoice?.invoiceDate || draft?.invoiceDate || todayIso());
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate || draft?.dueDate || addDays(todayIso(), settings.defaultDueDays)
@@ -127,11 +128,13 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
     }
   }
 
-  async function finalize() {
-    const message = draft?.replacesNo
-      ? `Finalize this correction? It receives a new invoice number. ${draft.replacesNo} will be marked Cancelled and its payments will move to the new invoice.`
-      : "Finalize this invoice? The number is permanent and the invoice cannot be edited.";
-    if (!window.confirm(message)) return;
+  async function finalize(redirectToList = false) {
+    if (!creatingInvoice) {
+      const message = draft?.replacesNo
+        ? `Finalize this correction? It receives a new invoice number. ${draft.replacesNo} will be marked Cancelled and its payments will move to the new invoice.`
+        : "Finalize this invoice? The number is permanent and the invoice cannot be edited.";
+      if (!window.confirm(message)) return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -139,9 +142,9 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
         ? await api<Draft>(`/api/drafts/${draftId}`, { method: "PUT", body: JSON.stringify(payload()) })
         : await api<Draft>("/api/drafts", { method: "POST", body: JSON.stringify(payload()) });
       const result = await api<{ id: number }>(`/api/drafts/${saved.id}/finalize`, { method: "POST" });
-      router.push(`/invoices/${result.id}`);
+      router.push(redirectToList || creatingInvoice ? "/invoices" : `/invoices/${result.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not finalize the invoice.");
+      setError(err instanceof ApiError ? err.message : creatingInvoice ? "Could not create the invoice." : "Could not finalize the invoice.");
       setBusy(false);
     }
   }
@@ -171,11 +174,13 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
             if (event.target.value) setDueDate(addDays(event.target.value, settings.defaultDueDays));
           }} /></label>
           <label>Due date 支払期限<input type="date" value={dueDate || ""} onChange={(event) => setDueDate(event.target.value)} /></label>
-          <label>
-            {editingInvoice
-              ? `Invoice ${invoice?.invoiceNo}`
-              : `Draft ${draft?.draftCode || (draftId ? `#${draftId}` : "not saved")}`}
-          </label>
+          {!creatingInvoice && (
+            <label>
+              {editingInvoice
+                ? `Invoice ${invoice?.invoiceNo}`
+                : `Draft ${draft?.draftCode || (draftId ? `#${draftId}` : "not saved")}`}
+            </label>
+          )}
         </div>
         <div style={{ height: 12 }} />
         <label>Customer *
@@ -189,7 +194,12 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
         {customer && (
           <p className="note">
             {customer.companyName} {customer.postalCode} {customer.address} · {customer.phone} · {customer.email}
-            <br />{editingInvoice ? "Saving refreshes the customer snapshot on this invoice." : "The invoice keeps a snapshot of these details when you finalize."}
+            <br />
+            {editingInvoice
+              ? "Saving refreshes the customer snapshot on this invoice."
+              : creatingInvoice
+                ? "The invoice keeps a snapshot of these details when you create it."
+                : "The invoice keeps a snapshot of these details when you finalize."}
           </p>
         )}
         <div style={{ height: 12 }} />
@@ -282,10 +292,14 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
               <button className="btn ghost" type="button" disabled={busy} onClick={() => router.push(`/invoices/${invoice?.id}`)}>Cancel</button>
               <button className="btn gold" type="button" disabled={busy} onClick={saveInvoice}>Save changes</button>
             </>
+          ) : creatingInvoice ? (
+            <button className="btn gold" type="button" disabled={busy} onClick={() => finalize(true)}>
+              {busy ? "Creating…" : "Create invoice"}
+            </button>
           ) : (
             <>
               <button className="btn ghost" type="button" disabled={busy} onClick={saveDraft}>Save draft</button>
-              <button className="btn gold" type="button" disabled={busy} onClick={finalize}>Finalize invoice</button>
+              <button className="btn gold" type="button" disabled={busy} onClick={() => finalize()}>Finalize invoice</button>
               {draftId && <button className="btn danger" type="button" disabled={busy} onClick={discard}>Discard</button>}
             </>
           )}
@@ -293,7 +307,9 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
         <p className="note">
           {editingInvoice
             ? "Edits keep the same invoice number. Payments already recorded stay attached."
-            : "Saving a draft does not issue a number. Finalized numbers are never reused."}
+            : creatingInvoice
+              ? "Creates the invoice with a permanent number, then returns to the register."
+              : "Saving a draft does not issue a number. Finalized numbers are never reused."}
         </p>
       </aside>
     </div>

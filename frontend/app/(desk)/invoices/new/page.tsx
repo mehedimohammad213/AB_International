@@ -22,7 +22,7 @@ export default function NewInvoicePage() {
         <div>
           <div className="kicker">Invoice Entry 請求書作成</div>
           <h1>New invoice</h1>
-          <p>Save a draft at any time. Finalize issues the permanent number, starting at {bundle?.settings.nextInvoicePreview || "…"}.</p>
+          <p>Create issues the permanent number, starting at {bundle?.settings.nextInvoicePreview || "…"}, then returns to the register.</p>
         </div>
       </div>
       {bundle && <InvoiceForm customers={customers} units={bundle.units} settings={bundle.settings} />}
