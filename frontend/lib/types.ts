@@ -60,6 +60,24 @@ export type Customer = {
   createdAt: string;
 };
 
+export type CustomerPage = {
+  items: Customer[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type CustomerInput = {
+  name: string;
+  companyName: string;
+  postalCode: string;
+  address: string;
+  phone: string;
+  email: string;
+  taxRegNo: string;
+  remarks: string;
+};
+
 export type Line = {
   lineNo?: number;
   description: string;

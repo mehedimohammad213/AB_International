@@ -35,11 +35,86 @@ const listSql = `
   FROM customers c
 `;
 
+function buildListFilters(reqQuery: Record<string, unknown>) {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  const search = String(reqQuery.q || "").trim();
+  const filter = String(reqQuery.filter || "all");
+  const from = String(reqQuery.from || "").trim();
+  const to = String(reqQuery.to || "").trim();
+
+  if (search) {
+    params.push(`%${search}%`);
+    const i = params.length;
+    clauses.push(`(
+      c.customer_code ILIKE $${i}
+      OR c.name ILIKE $${i}
+      OR c.company_name ILIKE $${i}
+      OR c.phone ILIKE $${i}
+      OR c.email ILIKE $${i}
+      OR c.postal_code ILIKE $${i}
+      OR c.address ILIKE $${i}
+      OR c.tax_reg_no ILIKE $${i}
+    )`);
+  }
+
+  if (from) {
+    params.push(from);
+    clauses.push(`c.created_at::date >= $${params.length}::date`);
+  }
+  if (to) {
+    params.push(to);
+    clauses.push(`c.created_at::date <= $${params.length}::date`);
+  }
+
+  if (filter === "duplicates") {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM customers o
+      WHERE o.id <> c.id AND lower(btrim(o.name)) = lower(btrim(c.name))
+    )`);
+  } else if (filter === "missing_email") {
+    clauses.push(`btrim(coalesce(c.email, '')) = ''`);
+  } else if (filter === "missing_phone") {
+    clauses.push(`btrim(coalesce(c.phone, '')) = ''`);
+  } else if (filter === "has_company") {
+    clauses.push(`btrim(coalesce(c.company_name, '')) <> ''`);
+  }
+
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    params,
+    search,
+    filter,
+  };
+}
+
 router.get(
   "/",
-  asyncRoute(async (_req, res) => {
-    const result = await query(`${listSql} ORDER BY c.customer_code`);
-    res.json(camels(result.rows));
+  asyncRoute(async (req, res) => {
+    const { where, params } = buildListFilters(req.query as Record<string, unknown>);
+    const paginate = req.query.page != null;
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+
+    if (!paginate) {
+      const result = await query(`${listSql} ${where} ORDER BY c.customer_code`, params);
+      res.json(camels(result.rows));
+      return;
+    }
+
+    const countResult = await query(`SELECT COUNT(*)::int AS total FROM customers c ${where}`, params);
+    const total = Number(countResult.rows[0]?.total || 0);
+    const offset = (page - 1) * pageSize;
+    const result = await query(
+      `${listSql} ${where} ORDER BY c.customer_code LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, offset]
+    );
+    res.json({
+      items: camels(result.rows),
+      total,
+      page,
+      pageSize,
+    });
   })
 );
 
@@ -149,6 +224,41 @@ router.put(
       return result.rows[0];
     });
     res.json(camel(updated));
+  })
+);
+
+router.delete(
+  "/:id",
+  asyncRoute(async (req, res) => {
+    const id = Number(req.params.id);
+    const existing = await query("SELECT * FROM customers WHERE id = $1", [id]);
+    if (!existing.rows[0]) throw new HttpError(404, "Customer not found.");
+
+    const linked = await query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM invoices WHERE customer_id = $1) AS invoices,
+         (SELECT COUNT(*)::int FROM drafts WHERE customer_id = $1) AS drafts`,
+      [id]
+    );
+    const invoiceCount = Number(linked.rows[0].invoices);
+    const draftCount = Number(linked.rows[0].drafts);
+    if (invoiceCount > 0 || draftCount > 0) {
+      throw new HttpError(
+        400,
+        `Cannot delete ${existing.rows[0].customer_code}: linked to ${invoiceCount} invoice(s) and ${draftCount} draft(s).`
+      );
+    }
+
+    await withTx(async (client) => {
+      await client.query("DELETE FROM customers WHERE id = $1", [id]);
+      await writeAudit(client, {
+        operator: operatorName(req),
+        action: "Delete customer",
+        document: String(existing.rows[0].customer_code),
+        details: String(existing.rows[0].name),
+      });
+    });
+    res.json({ ok: true });
   })
 );
 
