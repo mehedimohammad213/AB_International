@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 const links = [
   { href: "/", label: "Dashboard", ja: "経営サマリー" },
   { href: "/customers", label: "Customers", ja: "顧客一覧" },
-  { href: "/invoices/new", label: "New invoice", ja: "請求書作成" },
   { href: "/invoices", label: "Register", ja: "請求書台帳" },
   { href: "/drafts", label: "Drafts", ja: "下書き" },
   { href: "/payments", label: "Payments", ja: "入金記録" },
@@ -43,9 +42,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <nav>
           {links.map((link) => {
             const active = ready && (link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`));
-            const exactNew = link.href === "/invoices" && pathname.startsWith("/invoices/new");
             return (
-              <Link key={link.href} href={link.href} className={active && !exactNew ? "active" : undefined}>
+              <Link key={link.href} href={link.href} className={active ? "active" : undefined}>
                 {link.label}
                 <span className="ja">{link.ja}</span>
               </Link>

@@ -219,6 +219,8 @@ tr.click:hover { background: #fbf6ee; cursor: pointer; }
 .icon-btn:hover { background: #fbf6ee; border-color: #d7c7b3; }
 .icon-btn.danger { color: var(--crimson); }
 .icon-btn.danger:hover { background: #fff4f4; border-color: #f0c9cf; }
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-btn:disabled:hover { background: white; border-color: var(--line); }
 .span-2 { grid-column: 1 / -1; }
 
 .pager {

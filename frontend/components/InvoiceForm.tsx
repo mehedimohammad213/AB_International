@@ -5,33 +5,45 @@ import { useMemo, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { addDays, todayIso, yen } from "@/lib/format";
 import { computeTotals } from "@/lib/totals";
-import type { Customer, Draft, Line, Settings } from "@/lib/types";
+import type { Customer, Draft, Invoice, Line, Settings } from "@/lib/types";
 
 type Props = {
   customers: Customer[];
   units: string[];
   settings: Settings;
   draft?: Draft | null;
+  invoice?: Invoice | null;
 };
 
 const emptyLine = (): Line => ({ description: "", qty: 1, unit: "unit", unitPrice: null });
 
-export default function InvoiceForm({ customers, units, settings, draft }: Props) {
+function initialLines(draft?: Draft | null, invoice?: Invoice | null) {
+  if (invoice?.lines?.length) return invoice.lines;
+  if (draft?.lines?.length) return draft.lines;
+  return [emptyLine(), emptyLine(), emptyLine()];
+}
+
+export default function InvoiceForm({ customers, units, settings, draft, invoice }: Props) {
   const router = useRouter();
-  const [invoiceDate, setInvoiceDate] = useState(draft?.invoiceDate || todayIso());
-  const [dueDate, setDueDate] = useState(draft?.dueDate || addDays(todayIso(), settings.defaultDueDays));
-  const [customerId, setCustomerId] = useState<number | "">(draft?.customerId || "");
-  const [subject, setSubject] = useState(draft?.subject || "");
-  const [terms, setTerms] = useState(draft?.terms || settings.defaultTerms);
-  const [remarks, setRemarks] = useState(draft?.remarks || "");
-  const [discountPercent, setDiscountPercent] = useState(draft ? draft.discountRate * 100 : 0);
-  const [discountFixed, setDiscountFixed] = useState(draft?.discountFixed || 0);
-  const [taxMode, setTaxMode] = useState(draft?.taxMode || settings.defaultTaxMode);
-  const [taxRate, setTaxRate] = useState(draft ? draft.taxRate : settings.taxRate);
-  const [taxRounding, setTaxRounding] = useState(draft?.taxRounding || settings.taxRounding);
-  const [otherLabel, setOtherLabel] = useState(draft?.otherChargesLabel || "");
-  const [otherCharges, setOtherCharges] = useState(draft?.otherCharges || 0);
-  const [lines, setLines] = useState<Line[]>(draft?.lines?.length ? draft.lines : [emptyLine(), emptyLine(), emptyLine()]);
+  const editingInvoice = Boolean(invoice);
+  const [invoiceDate, setInvoiceDate] = useState(invoice?.invoiceDate || draft?.invoiceDate || todayIso());
+  const [dueDate, setDueDate] = useState(
+    invoice?.dueDate || draft?.dueDate || addDays(todayIso(), settings.defaultDueDays)
+  );
+  const [customerId, setCustomerId] = useState<number | "">(invoice?.customerId || draft?.customerId || "");
+  const [subject, setSubject] = useState(invoice?.subject || draft?.subject || "");
+  const [terms, setTerms] = useState(invoice?.terms || draft?.terms || settings.defaultTerms);
+  const [remarks, setRemarks] = useState(invoice?.remarks || draft?.remarks || "");
+  const [discountPercent, setDiscountPercent] = useState(
+    invoice ? invoice.discountRate * 100 : draft ? draft.discountRate * 100 : 0
+  );
+  const [discountFixed, setDiscountFixed] = useState(invoice?.discountFixed || draft?.discountFixed || 0);
+  const [taxMode, setTaxMode] = useState(invoice?.taxMode || draft?.taxMode || settings.defaultTaxMode);
+  const [taxRate, setTaxRate] = useState(invoice ? invoice.taxRate : draft ? draft.taxRate : settings.taxRate);
+  const [taxRounding, setTaxRounding] = useState(invoice?.taxRounding || draft?.taxRounding || settings.taxRounding);
+  const [otherLabel, setOtherLabel] = useState(invoice?.otherChargesLabel || draft?.otherChargesLabel || "");
+  const [otherCharges, setOtherCharges] = useState(invoice?.otherCharges || draft?.otherCharges || 0);
+  const [lines, setLines] = useState<Line[]>(initialLines(draft, invoice));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [draftId, setDraftId] = useState<number | null>(draft?.id || null);
@@ -101,6 +113,20 @@ export default function InvoiceForm({ customers, units, settings, draft }: Props
     }
   }
 
+  async function saveInvoice() {
+    if (!invoice) return;
+    if (!window.confirm(`Save changes to ${invoice.invoiceNo}? The invoice number stays the same.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api<Invoice>(`/api/invoices/${invoice.id}`, { method: "PUT", body: JSON.stringify(payload()) });
+      router.push(`/invoices/${invoice.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save the invoice.");
+      setBusy(false);
+    }
+  }
+
   async function finalize() {
     const message = draft?.replacesNo
       ? `Finalize this correction? It receives a new invoice number. ${draft.replacesNo} will be marked Cancelled and its payments will move to the new invoice.`
@@ -144,8 +170,12 @@ export default function InvoiceForm({ customers, units, settings, draft }: Props
             setInvoiceDate(event.target.value);
             if (event.target.value) setDueDate(addDays(event.target.value, settings.defaultDueDays));
           }} /></label>
-          <label>Due date 支払期限<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
-          <label>Draft {draft?.draftCode || (draftId ? `#${draftId}` : "not saved")}</label>
+          <label>Due date 支払期限<input type="date" value={dueDate || ""} onChange={(event) => setDueDate(event.target.value)} /></label>
+          <label>
+            {editingInvoice
+              ? `Invoice ${invoice?.invoiceNo}`
+              : `Draft ${draft?.draftCode || (draftId ? `#${draftId}` : "not saved")}`}
+          </label>
         </div>
         <div style={{ height: 12 }} />
         <label>Customer *
@@ -159,7 +189,7 @@ export default function InvoiceForm({ customers, units, settings, draft }: Props
         {customer && (
           <p className="note">
             {customer.companyName} {customer.postalCode} {customer.address} · {customer.phone} · {customer.email}
-            <br />The invoice keeps a snapshot of these details when you finalize.
+            <br />{editingInvoice ? "Saving refreshes the customer snapshot on this invoice." : "The invoice keeps a snapshot of these details when you finalize."}
           </p>
         )}
         <div style={{ height: 12 }} />
@@ -247,11 +277,24 @@ export default function InvoiceForm({ customers, units, settings, draft }: Props
           <div className="grand"><span>Grand total</span><span>{yen(totals.grandTotal)}</span></div>
         </div>
         <div className="actions" style={{ marginTop: 16 }}>
-          <button className="btn ghost" type="button" disabled={busy} onClick={saveDraft}>Save draft</button>
-          <button className="btn gold" type="button" disabled={busy} onClick={finalize}>Finalize invoice</button>
-          {draftId && <button className="btn danger" type="button" disabled={busy} onClick={discard}>Discard</button>}
+          {editingInvoice ? (
+            <>
+              <button className="btn ghost" type="button" disabled={busy} onClick={() => router.push(`/invoices/${invoice?.id}`)}>Cancel</button>
+              <button className="btn gold" type="button" disabled={busy} onClick={saveInvoice}>Save changes</button>
+            </>
+          ) : (
+            <>
+              <button className="btn ghost" type="button" disabled={busy} onClick={saveDraft}>Save draft</button>
+              <button className="btn gold" type="button" disabled={busy} onClick={finalize}>Finalize invoice</button>
+              {draftId && <button className="btn danger" type="button" disabled={busy} onClick={discard}>Discard</button>}
+            </>
+          )}
         </div>
-        <p className="note">Saving a draft does not issue a number. Finalized numbers are never reused.</p>
+        <p className="note">
+          {editingInvoice
+            ? "Edits keep the same invoice number. Payments already recorded stay attached."
+            : "Saving a draft does not issue a number. Finalized numbers are never reused."}
+        </p>
       </aside>
     </div>
   );

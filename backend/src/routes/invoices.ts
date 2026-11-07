@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { camel, camels, getPool, query, withTx } from "../db";
 import { writeAudit } from "../lib/audit";
+import { documentSchema, prepareDocument } from "../lib/documents";
 import { asyncRoute, HttpError, operatorName } from "../lib/http";
 import { formatCode } from "../lib/numbering";
 import { INVOICE_COLUMNS } from "../sql";
@@ -159,6 +160,109 @@ router.post(
       action: "Print invoice",
       document: String(invoice.invoiceNo),
       details: "Opened the printable invoice",
+    });
+    res.json({ ok: true });
+  })
+);
+
+router.put(
+  "/:id",
+  asyncRoute(async (req, res) => {
+    const body = documentSchema.parse(req.body);
+    const prepared = prepareDocument(body, true);
+    await withTx(async (client) => {
+      const invoice = await lockInvoice(client, req.params.id);
+      if (invoice.record_status !== "Issued") {
+        throw new HttpError(400, "Only an issued invoice can be edited.");
+      }
+      const customerResult = await client.query("SELECT * FROM customers WHERE id = $1", [prepared.input.customerId]);
+      const customer = customerResult.rows[0];
+      if (!customer) throw new HttpError(400, "The selected customer no longer exists.");
+      const settings = await client.query("SELECT tax_label FROM settings WHERE id = 1");
+      await client.query(
+        `UPDATE invoices SET
+          invoice_date = $2, due_date = $3, customer_id = $4, customer_name = $5, customer_phone = $6,
+          company_name = $7, postal_code = $8, address = $9, email = $10, customer_reg_no = $11,
+          subject = $12, terms = $13, remarks = $14,
+          subtotal = $15, discount = $16, tax = $17, other_charges = $18, grand_total = $19,
+          discount_rate = $20, discount_fixed = $21, tax_mode = $22, tax_rate = $23, tax_rounding = $24,
+          tax_label = $25, other_charges_label = $26, line_count = $27
+         WHERE id = $1`,
+        [
+          invoice.id,
+          prepared.input.invoiceDate,
+          prepared.input.dueDate || null,
+          customer.id,
+          customer.name,
+          customer.phone,
+          customer.company_name,
+          customer.postal_code,
+          customer.address,
+          customer.email,
+          customer.tax_reg_no,
+          prepared.input.subject.trim(),
+          prepared.input.terms.trim(),
+          prepared.input.remarks.trim(),
+          prepared.totals.subtotal,
+          prepared.totals.discount,
+          prepared.totals.tax,
+          prepared.totals.otherCharges,
+          prepared.totals.grandTotal,
+          prepared.input.discountPercent / 100,
+          prepared.input.discountFixed,
+          prepared.input.taxMode,
+          prepared.input.taxRate,
+          prepared.input.taxRounding,
+          settings.rows[0].tax_label,
+          prepared.input.otherChargesLabel.trim(),
+          prepared.lines.length,
+        ]
+      );
+      await client.query("DELETE FROM invoice_lines WHERE invoice_id = $1", [invoice.id]);
+      for (const line of prepared.lines) {
+        await client.query(
+          `INSERT INTO invoice_lines (invoice_id, line_no, description, qty, unit, unit_price, line_total)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [invoice.id, line.lineNo, line.description, line.qty, line.unit, line.unitPrice, line.lineTotal]
+        );
+      }
+      await writeAudit(client, {
+        operator: operatorName(req),
+        action: "Edit invoice",
+        document: invoice.invoice_no,
+        details: `${customer.name} / ${prepared.totals.grandTotal}`,
+      });
+    });
+    res.json(await loadInvoice(req.params.id));
+  })
+);
+
+router.delete(
+  "/:id",
+  asyncRoute(async (req, res) => {
+    await withTx(async (client) => {
+      const invoice = await lockInvoice(client, req.params.id);
+      const paid = await client.query(
+        "SELECT COALESCE(SUM(amount), 0)::bigint AS received, COUNT(*)::int AS entries FROM payments WHERE invoice_id = $1",
+        [invoice.id]
+      );
+      if (Number(paid.rows[0].received) !== 0 || Number(paid.rows[0].entries) > 0) {
+        throw new HttpError(
+          400,
+          `Invoice ${invoice.invoice_no} has payment records. Reverse or remove those payments before deleting.`
+        );
+      }
+      await client.query("UPDATE drafts SET replaces_invoice_id = NULL WHERE replaces_invoice_id = $1", [invoice.id]);
+      await client.query("UPDATE drafts SET finalized_invoice_id = NULL WHERE finalized_invoice_id = $1", [invoice.id]);
+      await client.query("UPDATE invoices SET replaces_invoice_id = NULL WHERE replaces_invoice_id = $1", [invoice.id]);
+      await client.query("UPDATE invoices SET replaced_by_invoice_id = NULL WHERE replaced_by_invoice_id = $1", [invoice.id]);
+      await client.query("DELETE FROM invoices WHERE id = $1", [invoice.id]);
+      await writeAudit(client, {
+        operator: operatorName(req),
+        action: "Delete invoice",
+        document: invoice.invoice_no,
+        details: invoice.customer_name,
+      });
     });
     res.json({ ok: true });
   })
