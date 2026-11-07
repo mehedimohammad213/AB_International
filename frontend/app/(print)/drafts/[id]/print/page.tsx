@@ -67,7 +67,7 @@ export default function PrintDraftPage() {
     <div className="sheet-page">
       <div className="actions no-print" style={{ width: "min(920px, 100%)", margin: "0 auto 12px" }}>
         <button className="btn gold" type="button" onClick={() => window.print()}>Print / Save PDF</button>
-        <Link className="btn ghost" href="/drafts">Back</Link>
+        <Link className="btn ghost" href="/invoices">Back</Link>
       </div>
       <InvoiceSheet settings={settings.settings} invoice={invoice} draft />
     </div>

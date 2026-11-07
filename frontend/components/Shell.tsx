@@ -8,8 +8,6 @@ const links = [
   { href: "/", label: "Dashboard", ja: "経営サマリー" },
   { href: "/customers", label: "Customers", ja: "顧客一覧" },
   { href: "/invoices", label: "Register", ja: "請求書台帳" },
-  { href: "/drafts", label: "Drafts", ja: "下書き" },
-  { href: "/payments", label: "Payments", ja: "入金記録" },
   { href: "/settings", label: "Settings", ja: "設定" },
   { href: "/audit", label: "Audit log", ja: "操作履歴" },
 ];

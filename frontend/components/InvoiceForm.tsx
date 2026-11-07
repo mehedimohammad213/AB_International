@@ -154,7 +154,7 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
     setBusy(true);
     try {
       await api(`/api/drafts/${draftId}/discard`, { method: "POST" });
-      router.push("/drafts");
+      router.push("/invoices");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not discard the draft.");
       setBusy(false);
