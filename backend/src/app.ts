@@ -1,7 +1,9 @@
 import cors from "cors";
 import express from "express";
+import { requireAuth } from "./lib/auth";
 import { errorMiddleware } from "./lib/http";
 import auditRoutes from "./routes/audit";
+import authRoutes from "./routes/auth";
 import customerRoutes from "./routes/customers";
 import dashboardRoutes from "./routes/dashboard";
 import draftRoutes from "./routes/drafts";
@@ -16,6 +18,8 @@ export function createApp() {
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, service: "AB International Invoice API" });
   });
+  app.use("/api/auth", authRoutes);
+  app.use("/api", requireAuth);
   app.use("/api/settings", settingsRoutes);
   app.use("/api/customers", customerRoutes);
   app.use("/api/drafts", draftRoutes);

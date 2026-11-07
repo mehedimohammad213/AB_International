@@ -25,6 +25,8 @@ export function asyncRoute(
 }
 
 export function operatorName(req: Request) {
+  const fromUser = req.user?.displayName?.trim();
+  if (fromUser) return fromUser.slice(0, 80);
   const raw = String(req.header("x-operator") || "Operator").trim();
   return raw.slice(0, 80) || "Operator";
 }

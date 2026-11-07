@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth";
 
 const links = [
   { href: "/", label: "Dashboard", ja: "経営サマリー" },
@@ -14,6 +15,8 @@ const links = [
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const [operator, setOperator] = useState("Operator");
   const [ready, setReady] = useState(false);
 
@@ -25,6 +28,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   function saveOperator(value: string) {
     setOperator(value);
     localStorage.setItem("ab-operator", value);
+  }
+
+  function onLogout() {
+    logout();
+    router.replace("/login");
   }
 
   return (
@@ -48,10 +56,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <label className="operator">
-          Your name on the audit log
-          <input value={operator} onChange={(event) => saveOperator(event.target.value)} />
-        </label>
+        <div className="nav-foot">
+          <label className="operator">
+            Your name on the audit log
+            <input value={operator} onChange={(event) => saveOperator(event.target.value)} />
+          </label>
+          <button className="btn ghost logout-btn" type="button" onClick={onLogout}>
+            Sign out
+          </button>
+        </div>
       </aside>
       <main className="main">{children}</main>
     </div>

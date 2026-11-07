@@ -1,3 +1,5 @@
+import { clearAuthStorage, getStoredToken } from "./auth-storage";
+
 export class ApiError extends Error {
   status: number;
   confirm?: string;
@@ -11,18 +13,31 @@ export class ApiError extends Error {
 
 const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+type ApiOptions = RequestInit & { skipAuth?: boolean };
+
+export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const { skipAuth, headers, ...rest } = options;
   const operator = typeof window === "undefined" ? "Operator" : localStorage.getItem("ab-operator") || "Operator";
+  const token = skipAuth ? null : getStoredToken();
+
   const response = await fetch(`${base}${path}`, {
-    ...options,
+    ...rest,
     headers: {
       "Content-Type": "application/json",
       "X-Operator": operator,
-      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(headers || {}),
     },
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && !skipAuth && typeof window !== "undefined") {
+      clearAuthStorage();
+      if (!window.location.pathname.startsWith("/login")) {
+        const next = window.location.pathname + window.location.search;
+        window.location.href = `/login?next=${encodeURIComponent(next)}`;
+      }
+    }
     throw new ApiError(response.status, data.error || response.statusText, data.confirm);
   }
   return data as T;

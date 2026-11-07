@@ -57,7 +57,8 @@ button { cursor: pointer; }
 }
 .nav a.active, .nav a:hover { background: rgba(255, 248, 240, 0.08); }
 .nav .ja { display: block; color: #b7a894; font-size: 11px; margin-top: 2px; }
-.operator { margin-top: auto; display: grid; gap: 6px; font-size: 12px; color: #c8b8a4; }
+.nav-foot { margin-top: auto; display: grid; gap: 12px; }
+.operator { display: grid; gap: 6px; font-size: 12px; color: #c8b8a4; }
 .operator input {
   background: #221c18;
   border: 1px solid #3a312a;
@@ -65,6 +66,56 @@ button { cursor: pointer; }
   padding: 8px 10px;
   color: white;
 }
+.logout-btn {
+  width: 100%;
+  border-color: #3a312a !important;
+  color: #efe4d6 !important;
+  background: transparent !important;
+}
+.logout-btn:hover { background: rgba(255, 248, 240, 0.08) !important; }
+
+.auth-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 420px at 85% -5%, rgba(166, 132, 47, 0.22), transparent 55%),
+    radial-gradient(700px 360px at 5% 100%, rgba(109, 39, 72, 0.16), transparent 50%),
+    linear-gradient(160deg, #1b1714 0%, #2a221c 45%, #14110f 100%);
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 28px 26px 30px;
+  display: grid;
+  gap: 14px;
+}
+
+.login-brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.login-brand img { width: 72px; height: auto; display: block; }
+.login-brand strong { display: block; letter-spacing: 0.08em; font-size: 13px; }
+.login-brand span { color: var(--muted); font-size: 12px; }
+.login-card h1 { margin: 0; font-size: 28px; letter-spacing: -0.04em; }
+.login-card > p { margin: 0; color: var(--muted); font-size: 14px; }
+.login-card .btn { width: 100%; margin-top: 4px; }
 
 .main { padding: 28px 32px 64px; min-width: 0; }
 .page-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; margin-bottom: 22px; }
