@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+*.log
+backend/.pgdata/
+_xlsm_extract/
+.DS_Store
