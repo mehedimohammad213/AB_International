@@ -18,31 +18,52 @@ router.get(
     const status = String(req.query.status || "All");
     const from = String(req.query.from || "");
     const to = String(req.query.to || "");
+    const paginate = req.query.page != null;
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
 
     if (search) {
       params.push(`%${search}%`);
-      clauses.push(`(i.invoice_no ILIKE $${params.length} OR i.customer_name ILIKE $${params.length})`);
+      clauses.push(`(invoice_no ILIKE $${params.length} OR customer_name ILIKE $${params.length})`);
     }
     if (from) {
       params.push(from);
-      clauses.push(`i.invoice_date >= $${params.length}`);
+      clauses.push(`invoice_date >= $${params.length}`);
     }
     if (to) {
       params.push(to);
-      clauses.push(`i.invoice_date <= $${params.length}`);
+      clauses.push(`invoice_date <= $${params.length}`);
     }
-    if (status === "Cancelled") clauses.push(`i.record_status = 'Cancelled'`);
-    else if (status === "Overdue") clauses.push(`i.record_status = 'Issued'`);
-    else if (status !== "All") clauses.push(`i.record_status = 'Issued'`);
+    if (status === "Cancelled") clauses.push(`record_status = 'Cancelled'`);
+    else if (status === "Overdue") clauses.push(`overdue = 'Overdue'`);
+    else if (status !== "All") {
+      clauses.push(`record_status = 'Issued'`);
+      params.push(status);
+      clauses.push(`payment_status = $${params.length}`);
+    }
 
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    const result = await query(`${INVOICE_COLUMNS} ${where} ORDER BY i.serial_no DESC`, params);
-    let rows = result.rows;
-    if (status === "Overdue") rows = rows.filter((row) => row.overdue === "Overdue");
-    else if (status !== "All" && status !== "Cancelled") {
-      rows = rows.filter((row) => row.payment_status === status);
+    const listed = `SELECT * FROM (${INVOICE_COLUMNS}) AS listed`;
+
+    if (!paginate) {
+      const result = await query(`${listed} ${where} ORDER BY serial_no DESC`, params);
+      res.json(camels(result.rows));
+      return;
     }
-    res.json(camels(rows));
+
+    const countResult = await query(`SELECT COUNT(*)::int AS total FROM (${INVOICE_COLUMNS}) AS listed ${where}`, params);
+    const total = Number(countResult.rows[0]?.total || 0);
+    const offset = (page - 1) * pageSize;
+    const result = await query(
+      `${listed} ${where} ORDER BY serial_no DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, offset]
+    );
+    res.json({
+      items: camels(result.rows),
+      total,
+      page,
+      pageSize,
+    });
   })
 );
 

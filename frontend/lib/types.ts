@@ -67,6 +67,13 @@ export type CustomerPage = {
   pageSize: number;
 };
 
+export type InvoicePage = {
+  items: Invoice[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type CustomerInput = {
   name: string;
   companyName: string;

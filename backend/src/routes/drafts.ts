@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { PoolClient } from "pg";
 import { camel, camels, query, withTx } from "../db";
 import { writeAudit } from "../lib/audit";
-import { addDays, documentSchema, prepareDocument } from "../lib/documents";
+import { addDays, documentSchema, prepareDocument, todayIso } from "../lib/documents";
 import { asyncRoute, HttpError, operatorName } from "../lib/http";
 import { yen } from "../lib/money";
 import { formatCode, formatInvoiceNo } from "../lib/numbering";
@@ -220,17 +220,15 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
     "SELECT * FROM draft_lines WHERE draft_id = $1 ORDER BY line_no",
     [draftId]
   );
-  if (!draft.invoice_date) throw new HttpError(400, "Enter the invoice date.");
-  if (!draft.customer_id) throw new HttpError(400, "Choose a customer.");
-  if (lineResult.rows.length === 0) throw new HttpError(400, "Add at least one item.");
 
   const settingsResult = await client.query("SELECT * FROM settings WHERE id = 1 FOR UPDATE");
   const settings = settingsResult.rows[0];
-  const customerResult = await client.query("SELECT * FROM customers WHERE id = $1", [draft.customer_id]);
-  const customer = customerResult.rows[0];
-  if (!customer) throw new HttpError(400, "The selected customer no longer exists.");
+  const customer = draft.customer_id
+    ? (await client.query("SELECT * FROM customers WHERE id = $1", [draft.customer_id])).rows[0]
+    : null;
+  if (draft.customer_id && !customer) throw new HttpError(400, "The selected customer no longer exists.");
 
-  const invoiceDate = String(draft.invoice_date).slice(0, 10);
+  const invoiceDate = draft.invoice_date ? String(draft.invoice_date).slice(0, 10) : todayIso();
   const year = Number(invoiceDate.slice(0, 4));
   let sequence = Number(settings.next_sequence);
   if (settings.restart_each_year && Number(settings.sequence_year) !== year) sequence = 1;
@@ -253,7 +251,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
     {
       invoiceDate,
       dueDate,
-      customerId: customer.id,
+      customerId: customer?.id ?? null,
       subject: draft.subject,
       terms: draft.terms,
       remarks: draft.remarks,
@@ -271,7 +269,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
         unitPrice: Number(line.unit_price),
       })),
     },
-    true
+    false
   );
 
   let replacesId: number | null = draft.replaces_invoice_id;
@@ -299,14 +297,14 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
       invoiceNo,
       invoiceDate,
       dueDate,
-      customer.id,
-      customer.name,
-      customer.phone,
-      customer.company_name,
-      customer.postal_code,
-      customer.address,
-      customer.email,
-      customer.tax_reg_no,
+      customer?.id ?? null,
+      customer?.name ?? "",
+      customer?.phone ?? "",
+      customer?.company_name ?? "",
+      customer?.postal_code ?? "",
+      customer?.address ?? "",
+      customer?.email ?? "",
+      customer?.tax_reg_no ?? "",
       draft.subject,
       draft.terms,
       draft.remarks,
@@ -322,7 +320,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
       draft.tax_rounding,
       settings.tax_label,
       draft.other_charges_label,
-      lineResult.rows.length,
+      prepared.lines.length,
       replacesId,
       draftId,
     ]
@@ -347,7 +345,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
       invoiceId,
       oldNo,
       invoiceNo,
-      customer.name,
+      customer?.name ?? "",
       nextPaymentNo,
       operator
     );
@@ -371,7 +369,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
   );
   await client.query(
     `UPDATE settings SET
-      next_sequence = $2, sequence_year = $3, last_invoice_no = $4, next_payment_no = $5, updated_at = now()
+      next_sequence = $1, sequence_year = $2, last_invoice_no = $3, next_payment_no = $4, updated_at = now()
      WHERE id = 1`,
     [sequence + 1, year, invoiceNo, nextPaymentNo]
   );
@@ -379,7 +377,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
     operator,
     action: "Finalize invoice",
     document: invoiceNo,
-    details: `${customer.name} / ${yen(prepared.totals.grandTotal)} / ${prepared.lines.length} line(s)`,
+    details: `${customer?.name || "No customer"} / ${yen(prepared.totals.grandTotal)} / ${prepared.lines.length} line(s)`,
   });
   return invoiceId;
 }

@@ -28,8 +28,24 @@ export const documentSchema = z.object({
 
 export type DocumentInput = z.infer<typeof documentSchema>;
 
+function isCompleteLine(line: {
+  description: string;
+  qty: number | null;
+  unit: string;
+  unitPrice: number | null;
+}) {
+  return (
+    Boolean(line.description) &&
+    line.qty != null &&
+    line.qty > 0 &&
+    line.unitPrice != null &&
+    Number.isInteger(line.unitPrice) &&
+    line.unitPrice >= 0
+  );
+}
+
 export function prepareDocument(input: DocumentInput, requireComplete: boolean) {
-  const lines = input.lines
+  let lines = input.lines
     .map((line) => ({
       description: line.description.trim(),
       qty: line.qty ?? null,
@@ -40,18 +56,19 @@ export function prepareDocument(input: DocumentInput, requireComplete: boolean) 
 
   if (lines.length > 30) throw new HttpError(400, "An invoice can have at most 30 lines.");
 
-  for (const line of lines) {
-    if (!line.description) throw new HttpError(400, "Every item needs a description.");
-    if (line.qty == null || line.qty <= 0) throw new HttpError(400, `Quantity for “${line.description}” must be greater than 0.`);
-    if (line.unitPrice == null || !Number.isInteger(line.unitPrice) || line.unitPrice < 0) {
-      throw new HttpError(400, `Unit price for “${line.description}” must be a whole yen amount.`);
-    }
-  }
-
   if (requireComplete) {
+    for (const line of lines) {
+      if (!line.description) throw new HttpError(400, "Every item needs a description.");
+      if (line.qty == null || line.qty <= 0) throw new HttpError(400, `Quantity for “${line.description}” must be greater than 0.`);
+      if (line.unitPrice == null || !Number.isInteger(line.unitPrice) || line.unitPrice < 0) {
+        throw new HttpError(400, `Unit price for “${line.description}” must be a whole yen amount.`);
+      }
+    }
     if (!input.invoiceDate) throw new HttpError(400, "Enter the invoice date.");
     if (!input.customerId) throw new HttpError(400, "Choose a customer.");
     if (lines.length === 0) throw new HttpError(400, "Add at least one item.");
+  } else {
+    lines = lines.filter(isCompleteLine);
   }
 
   const totals = computeTotals({
@@ -77,4 +94,8 @@ export function addDays(isoDate: string, days: number) {
   const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+export function todayIso() {
+  return new Date().toISOString().slice(0, 10);
 }

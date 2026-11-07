@@ -169,7 +169,7 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
           <div className="banner">This draft replaces {draft.replacesNo}. Finalizing cancels that invoice and transfers its payments.</div>
         )}
         <div className="row">
-          <label>Date *<input type="date" value={invoiceDate} onChange={(event) => {
+          <label>Date<input type="date" value={invoiceDate} onChange={(event) => {
             setInvoiceDate(event.target.value);
             if (event.target.value) setDueDate(addDays(event.target.value, settings.defaultDueDays));
           }} /></label>
@@ -183,7 +183,7 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
           )}
         </div>
         <div style={{ height: 12 }} />
-        <label>Customer *
+        <label>Customer
           <select value={customerId} onChange={(event) => setCustomerId(event.target.value ? Number(event.target.value) : "")}>
             <option value="">Choose a customer</option>
             {customers.map((item) => (

@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import StatusPill from "@/components/StatusPill";
 import { api, ApiError } from "@/lib/api";
 import { yen } from "@/lib/format";
-import type { Invoice } from "@/lib/types";
+import type { Invoice, InvoicePage } from "@/lib/types";
 
+const PAGE_SIZE = 10;
 const statuses = ["All", "Unpaid", "Partially Paid", "Paid", "Overpaid", "Overdue", "Cancelled"];
+
+type Query = { q: string; status: string; from: string; to: string; page: number };
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -16,30 +19,49 @@ export default function InvoicesPage() {
   const [status, setStatus] = useState("All");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [query, setQuery] = useState<Query>({ q: "", status: "All", from: "", to: "", page: 1 });
   const [rows, setRows] = useState<Invoice[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtersApplied, setFiltersApplied] = useState(false);
 
-  function load(next = { q, status, from, to }) {
-    const params = new URLSearchParams();
-    if (next.q) params.set("q", next.q);
-    if (next.status) params.set("status", next.status);
-    if (next.from) params.set("from", next.from);
-    if (next.to) params.set("to", next.to);
-    api<Invoice[]>(`/api/invoices?${params.toString()}`)
-      .then(setRows)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load invoices."));
-  }
+  const load = useCallback(async (next: Query) => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        page: String(next.page),
+        pageSize: String(PAGE_SIZE),
+        status: next.status,
+      });
+      if (next.q.trim()) params.set("q", next.q.trim());
+      if (next.from) params.set("from", next.from);
+      if (next.to) params.set("to", next.to);
+      const data = await api<InvoicePage | Invoice[]>(`/api/invoices?${params.toString()}`);
+      if (Array.isArray(data)) {
+        setRows(data);
+        setTotal(data.length);
+      } else {
+        setRows(data.items ?? []);
+        setTotal(data.total ?? 0);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not load invoices.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    load();
-    // initial register load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    load(query).catch(() => undefined);
+  }, [load, query]);
+
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function applyFilters() {
     setFiltersApplied(true);
-    load({ q, status, from, to });
+    setQuery({ q, status, from, to, page: 1 });
   }
 
   function resetFilters() {
@@ -48,7 +70,7 @@ export default function InvoicesPage() {
     setFrom("");
     setTo("");
     setFiltersApplied(false);
-    load({ q: "", status: "All", from: "", to: "" });
+    setQuery({ q: "", status: "All", from: "", to: "", page: 1 });
   }
 
   async function remove(invoice: Invoice) {
@@ -56,7 +78,10 @@ export default function InvoicesPage() {
     setError("");
     try {
       await api(`/api/invoices/${invoice.id}`, { method: "DELETE" });
-      load();
+      const nextPage = rows.length === 1 && query.page > 1 ? query.page - 1 : query.page;
+      const next = { ...query, page: nextPage };
+      setQuery(next);
+      if (nextPage === query.page) await load(next);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not delete the invoice.");
     }
@@ -159,8 +184,38 @@ export default function InvoicesPage() {
                   </td>
                 </tr>
               ))}
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="wrap muted">No invoices match this search.</td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
+
+        <div className="pager">
+          <span className="note">
+            {loading ? "Loading…" : `${total} invoice${total === 1 ? "" : "s"}`}
+            {!loading && total > 0 ? ` · page ${query.page} of ${pageCount}` : ""}
+          </span>
+          <div className="actions">
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={query.page <= 1 || loading}
+              onClick={() => setQuery((current) => ({ ...current, page: current.page - 1 }))}
+            >
+              Previous
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={query.page >= pageCount || loading}
+              onClick={() => setQuery((current) => ({ ...current, page: current.page + 1 }))}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </section>
     </>
