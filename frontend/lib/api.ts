@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9004";
 
 type ApiOptions = RequestInit & { skipAuth?: boolean };
 

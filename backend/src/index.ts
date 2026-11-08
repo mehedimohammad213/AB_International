@@ -8,7 +8,7 @@ async function main() {
   await ensureDatabase();
   await migrate();
   await ensureDefaultUser();
-  const port = Number(process.env.PORT || 4000);
+  const port = Number(process.env.PORT || 9004);
   createApp().listen(port, () => {
     console.log(`API listening on http://localhost:${port}`);
   });

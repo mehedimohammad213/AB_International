@@ -28,8 +28,8 @@ npm install --prefix frontend
 npm run dev
 ```
 
-- Web: http://localhost:3000
-- API: http://localhost:4000
+- Web: http://localhost:9003
+- API: http://localhost:9004
 
 Put your name in the sidebar. It is stored on the audit log.
 
