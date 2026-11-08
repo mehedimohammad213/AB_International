@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { api, ApiError } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import CustomerDrawer from "@/components/CustomerDrawer";
+import { api, ApiError, send } from "@/lib/api";
 import { addDays, todayIso, yen } from "@/lib/format";
 import { computeTotals } from "@/lib/totals";
-import type { Customer, Draft, Invoice, Line, Settings } from "@/lib/types";
+import type { Customer, CustomerInput, Draft, Invoice, Line, Settings } from "@/lib/types";
 
 type Props = {
   customers: Customer[];
@@ -27,6 +28,7 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
   const router = useRouter();
   const editingInvoice = Boolean(invoice);
   const creatingInvoice = !invoice && !draft;
+  const [people, setPeople] = useState(customers);
   const [invoiceDate, setInvoiceDate] = useState(invoice?.invoiceDate || draft?.invoiceDate || todayIso());
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate || draft?.dueDate || addDays(todayIso(), settings.defaultDueDays)
@@ -48,8 +50,15 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [draftId, setDraftId] = useState<number | null>(draft?.id || null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [customerSaving, setCustomerSaving] = useState(false);
+  const [customerError, setCustomerError] = useState("");
 
-  const customer = customers.find((item) => item.id === customerId);
+  useEffect(() => {
+    setPeople(customers);
+  }, [customers]);
+
+  const customer = people.find((item) => item.id === customerId);
   const totals = useMemo(() => {
     const filled = lines.filter((line) => line.description.trim() && line.qty && line.unitPrice != null);
     return computeTotals({
@@ -161,7 +170,35 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
     }
   }
 
+  function openCustomerDrawer() {
+    setCustomerError("");
+    setDrawerOpen(true);
+  }
+
+  function closeCustomerDrawer() {
+    if (customerSaving) return;
+    setDrawerOpen(false);
+    setCustomerError("");
+  }
+
+  async function saveCustomer(form: CustomerInput) {
+    setCustomerSaving(true);
+    setCustomerError("");
+    try {
+      const created = await send<Customer>("/api/customers", form);
+      setPeople((current) => [...current, created].sort((a, b) => a.customerCode.localeCompare(b.customerCode)));
+      setCustomerId(created.id);
+      setDrawerOpen(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status !== 409) setCustomerError(err.message);
+      else if (!(err instanceof ApiError)) setCustomerError("Could not add the customer.");
+    } finally {
+      setCustomerSaving(false);
+    }
+  }
+
   return (
+    <>
     <div className="grid-3">
       <section className="panel" style={{ marginTop: 0 }}>
         {error && <div className="alert">{error}</div>}
@@ -183,14 +220,17 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
           )}
         </div>
         <div style={{ height: 12 }} />
-        <label>Customer
-          <select value={customerId} onChange={(event) => setCustomerId(event.target.value ? Number(event.target.value) : "")}>
-            <option value="">Choose a customer</option>
-            {customers.map((item) => (
-              <option key={item.id} value={item.id}>{item.customerCode} | {item.name}{item.companyName ? ` (${item.companyName})` : ""}</option>
-            ))}
-          </select>
-        </label>
+        <div className="row" style={{ alignItems: "end" }}>
+          <label style={{ flex: 1 }}>Customer
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value ? Number(event.target.value) : "")}>
+              <option value="">Choose a customer</option>
+              {people.map((item) => (
+                <option key={item.id} value={item.id}>{item.customerCode} | {item.name}{item.companyName ? ` (${item.companyName})` : ""}</option>
+              ))}
+            </select>
+          </label>
+          <button className="btn ghost" type="button" onClick={openCustomerDrawer}>Add customer</button>
+        </div>
         {customer && (
           <p className="note">
             {customer.companyName} {customer.postalCode} {customer.address} · {customer.phone} · {customer.email}
@@ -313,5 +353,15 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
         </p>
       </aside>
     </div>
+
+    <CustomerDrawer
+      open={drawerOpen}
+      customer={null}
+      saving={customerSaving}
+      error={customerError}
+      onClose={closeCustomerDrawer}
+      onSave={saveCustomer}
+    />
+    </>
   );
 }
