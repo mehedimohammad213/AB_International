@@ -7,8 +7,6 @@ import type { Settings, SettingsBundle } from "@/lib/types";
 export default function SettingsPage() {
   const [bundle, setBundle] = useState<SettingsBundle | null>(null);
   const [form, setForm] = useState<Settings | null>(null);
-  const [methods, setMethods] = useState("");
-  const [units, setUnits] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -16,8 +14,6 @@ export default function SettingsPage() {
     api<SettingsBundle>("/api/settings").then((data) => {
       setBundle(data);
       setForm(data.settings);
-      setMethods(data.methods.join("\n"));
-      setUnits(data.units.join("\n"));
     }).catch((err) => setError(err.message));
   }, []);
 
@@ -41,16 +37,9 @@ export default function SettingsPage() {
         nextDraftNo: Number(form.nextDraftNo),
         defaultDueDays: Number(form.defaultDueDays),
       }) });
-      const lists = await api<SettingsBundle>("/api/settings/lists", {
-        method: "PUT",
-        body: JSON.stringify({
-          methods: methods.split("\n"),
-          units: units.split("\n"),
-        }),
-      });
-      setBundle(lists);
+      setBundle(saved);
       setForm(saved.settings);
-      setMessage(`Saved. Next invoice number preview: ${lists.settings.nextInvoicePreview}`);
+      setMessage(`Saved. Next invoice number preview: ${saved.settings.nextInvoicePreview}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save settings.");
     }
@@ -63,7 +52,7 @@ export default function SettingsPage() {
       <div className="page-head">
         <div>
           <div className="kicker">Settings 設定</div>
-          <h1>Company and numbering</h1>
+          <h1>Invoice settings</h1>
           <p>Currency stays Japanese yen. Amounts are whole yen. Next number: {form.nextInvoicePreview}</p>
         </div>
         <button className="btn gold" type="button" onClick={save}>Save changes</button>
@@ -71,28 +60,6 @@ export default function SettingsPage() {
       {error && <div className="alert">{error}</div>}
       {message && <div className="banner">{message}</div>}
       <section className="panel" style={{ marginTop: 0 }}>
-        <h2>Company 会社情報</h2>
-        <div className="grid-2">
-          <label>Company name (Japanese)<input value={form.companyNameJa} onChange={(event) => set("companyNameJa", event.target.value)} /></label>
-          <label>Company name (English)<input value={form.companyNameEn} onChange={(event) => set("companyNameEn", event.target.value)} /></label>
-          <label>Postal code<input value={form.postalCode} onChange={(event) => set("postalCode", event.target.value)} /></label>
-          <label>Address<input value={form.address} onChange={(event) => set("address", event.target.value)} /></label>
-          <label>TEL / FAX<input value={form.telFax} onChange={(event) => set("telFax", event.target.value)} /></label>
-          <label>Mobile<input value={form.mobile} onChange={(event) => set("mobile", event.target.value)} /></label>
-          <label>Email<input value={form.email} onChange={(event) => set("email", event.target.value)} /></label>
-          <label>Registration no. 登録番号<input value={form.registrationNo} onChange={(event) => set("registrationNo", event.target.value)} /></label>
-        </div>
-      </section>
-      <section className="panel">
-        <h2>Bank details 振込先</h2>
-        <div className="grid-2">
-          <label>Bank and branch<input value={form.bankBranch} onChange={(event) => set("bankBranch", event.target.value)} /></label>
-          <label>Account type and number<input value={form.accountTypeNumber} onChange={(event) => set("accountTypeNumber", event.target.value)} /></label>
-          <label>Account name<input value={form.accountName} onChange={(event) => set("accountName", event.target.value)} /></label>
-          <label>Transfer note<input value={form.transferNote} onChange={(event) => set("transferNote", event.target.value)} /></label>
-        </div>
-      </section>
-      <section className="panel">
         <h2>Invoice text and numbering</h2>
         <div className="grid-2">
           <label>Document title<input value={form.documentTitle} onChange={(event) => set("documentTitle", event.target.value)} /></label>
@@ -115,9 +82,6 @@ export default function SettingsPage() {
           <label>Default due days<input type="number" min={0} max={365} value={form.defaultDueDays} onChange={(event) => set("defaultDueDays", Number(event.target.value))} /></label>
           <label>Next sequence<input type="number" value={form.nextSequence} onChange={(event) => set("nextSequence", Number(event.target.value))} /></label>
           <label>Sequence year<input type="number" value={form.sequenceYear} onChange={(event) => set("sequenceYear", Number(event.target.value))} /></label>
-          <label>Next payment no.<input type="number" value={form.nextPaymentNo} onChange={(event) => set("nextPaymentNo", Number(event.target.value))} /></label>
-          <label>Next customer no.<input type="number" value={form.nextCustomerNo} onChange={(event) => set("nextCustomerNo", Number(event.target.value))} /></label>
-          <label>Next draft no.<input type="number" value={form.nextDraftNo} onChange={(event) => set("nextDraftNo", Number(event.target.value))} /></label>
         </div>
         <p className="note">Last issued: {form.lastInvoiceNo || "—"}. Change the counters only when you know why.</p>
       </section>
@@ -138,13 +102,6 @@ export default function SettingsPage() {
           </label>
         </div>
         <p className="note">Tax is off by default. Confirm the rate with your accountant. 10% is Japan’s standard consumption-tax rate.</p>
-      </section>
-      <section className="panel">
-        <h2>Lists</h2>
-        <div className="grid-2">
-          <label>Payment methods, one per line<textarea value={methods} onChange={(event) => setMethods(event.target.value)} /></label>
-          <label>Units, one per line<textarea value={units} onChange={(event) => setUnits(event.target.value)} /></label>
-        </div>
       </section>
     </>
   );
