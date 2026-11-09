@@ -1,12 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import InvoiceSheet from "@/components/InvoiceSheet";
 import { api } from "@/lib/api";
-import { printDocument } from "@/lib/print";
 import type { Invoice, SettingsBundle } from "@/lib/types";
+
+const InvoicePdfPreview = dynamic(() => import("@/components/InvoicePdfPreview"), {
+  ssr: false,
+  loading: () => <p className="sheet-page">Preparing PDF…</p>,
+});
 
 export default function PrintInvoicePage() {
   const params = useParams<{ id: string }>();
@@ -26,10 +30,9 @@ export default function PrintInvoicePage() {
   return (
     <div className="sheet-page">
       <div className="actions no-print" style={{ width: "min(920px, 100%)", margin: "0 auto 12px" }}>
-        <button className="btn gold" type="button" onClick={printDocument}>Print / Save PDF</button>
         <Link className="btn ghost" href={`/invoices/${invoice.id}`}>Back to invoice</Link>
       </div>
-      <InvoiceSheet settings={settings.settings} invoice={invoice} />
+      <InvoicePdfPreview settings={settings.settings} invoice={invoice} />
     </div>
   );
 }
