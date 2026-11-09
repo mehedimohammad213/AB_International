@@ -10,40 +10,45 @@ ensurePdfFonts();
 const styles = StyleSheet.create({
   page: {
     fontFamily: "NotoSansJP",
-    fontSize: 9,
+    fontSize: 10,
     color: "#1a1a1a",
-    paddingTop: 78,
+    // Must clear fixed header: top(24) + logo height(78) + gap(~16)
+    paddingTop: 120,
     paddingBottom: 36,
-    paddingHorizontal: 36,
+    paddingHorizontal: 40,
   },
   header: {
     position: "absolute",
-    top: 22,
-    left: 36,
-    right: 36,
-    height: 48,
+    top: 24,
+    left: 40,
+    right: 40,
+    height: 78,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   logo: {
-    width: 130,
-    height: 42,
-    objectFit: "contain",
+    // Match on-screen invoice with native aspect so it sits flush left
+    width: 135,
+    height: 78,
   },
   titleBlock: {
+    height: 78,
     alignItems: "flex-end",
+    justifyContent: "center",
   },
   title: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: 700,
-    letterSpacing: 2,
+    letterSpacing: 3,
+    lineHeight: 1.1,
   },
   subtitle: {
-    fontSize: 10,
+    fontSize: 11,
     color: "#b8963e",
-    letterSpacing: 3,
-    marginTop: 2,
+    letterSpacing: 4,
+    marginTop: 4,
+    lineHeight: 1.2,
   },
   banner: {
     backgroundColor: "#fff6df",
@@ -59,14 +64,20 @@ const styles = StyleSheet.create({
   },
   grid: {
     flexDirection: "row",
-    gap: 16,
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  colLeft: { flex: 1.2 },
-  colRight: { flex: 0.8 },
+  colLeft: {
+    width: "55%",
+    paddingRight: 14,
+  },
+  colRight: {
+    width: "45%",
+    paddingLeft: 8,
+  },
+  line: { marginBottom: 2 },
   strong: { fontWeight: 700, marginTop: 2, marginBottom: 2 },
   muted: { color: "#6d645c" },
-  intro: { marginBottom: 6 },
+  intro: { marginTop: 4, marginBottom: 6 },
   amountBox: {
     borderWidth: 2,
     borderColor: "#1a1a1a",
@@ -181,29 +192,29 @@ export default function InvoicePdfDocument({
 
         <View style={styles.grid}>
           <View style={styles.colLeft}>
-            {postal ? <Text>〒{postal}</Text> : null}
-            {invoice.address ? <Text>{invoice.address}</Text> : null}
+            {postal ? <Text style={styles.line}>〒{postal}</Text> : null}
+            {invoice.address ? <Text style={styles.line}>{invoice.address}</Text> : null}
             <Text style={styles.strong}>
               {company ? `${company} 御中` : person ? `${person} 様` : ""}
             </Text>
-            {company && person ? <Text>ご担当: {person} 様</Text> : null}
-            {reg ? <Text>登録番号: {reg}</Text> : null}
+            {company && person ? <Text style={styles.line}>ご担当: {person} 様</Text> : null}
+            {reg ? <Text style={styles.line}>登録番号: {reg}</Text> : null}
           </View>
           <View style={styles.colRight}>
-            <Text>
-              請求書番号 No. <Text style={styles.strong}>{invoice.invoiceNo}</Text>
+            <Text style={styles.line}>
+              請求書番号 No. <Text style={{ fontWeight: 700 }}>{invoice.invoiceNo}</Text>
             </Text>
-            <Text>請求日 Date {ymd(invoice.invoiceDate)}</Text>
-            <Text>お支払期限 Due {ymd(invoice.dueDate)}</Text>
-            <Text style={[styles.muted, { marginTop: 8 }]}>{settings.companyNameJa}</Text>
-            <Text>{settings.companyNameEn}</Text>
-            <Text>
+            <Text style={styles.line}>請求日 Date {ymd(invoice.invoiceDate)}</Text>
+            <Text style={styles.line}>お支払期限 Due {ymd(invoice.dueDate)}</Text>
+            <Text style={[styles.muted, styles.line, { marginTop: 10 }]}>{settings.companyNameJa}</Text>
+            <Text style={styles.line}>{settings.companyNameEn}</Text>
+            <Text style={styles.line}>
               {settings.postalCode} {settings.address}
             </Text>
-            {settings.telFax ? <Text>TEL/FAX: {settings.telFax}</Text> : null}
-            {settings.mobile ? <Text>携帯: {settings.mobile}</Text> : null}
-            {settings.registrationNo ? <Text>登録番号: {settings.registrationNo}</Text> : null}
-            {!hideEmail ? <Text>Email: {settings.email}</Text> : null}
+            {settings.telFax ? <Text style={styles.line}>TEL/FAX: {settings.telFax}</Text> : null}
+            {settings.mobile ? <Text style={styles.line}>携帯: {settings.mobile}</Text> : null}
+            {settings.registrationNo ? <Text style={styles.line}>登録番号: {settings.registrationNo}</Text> : null}
+            {!hideEmail ? <Text style={styles.line}>Email: {settings.email}</Text> : null}
           </View>
         </View>
 
