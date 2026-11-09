@@ -12,7 +12,10 @@ const lineSchema = z.object({
 export const documentSchema = z.object({
   invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  customerId: z.number().int().positive().nullable().optional(),
+  customerId: z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? null : Number(value)),
+    z.number().int().positive().nullable().optional()
+  ),
   subject: z.string().default(""),
   terms: z.string().default(""),
   remarks: z.string().default(""),
@@ -44,6 +47,16 @@ function isCompleteLine(line: {
   );
 }
 
+function isBlankLine(line: {
+  description: string;
+  qty: number | null;
+  unit: string;
+  unitPrice: number | null;
+}) {
+  // Placeholder rows from the form (default qty/unit, no description/price) are ignored.
+  return !line.description && line.unitPrice == null;
+}
+
 export function prepareDocument(input: DocumentInput, requireComplete: boolean) {
   let lines = input.lines
     .map((line) => ({
@@ -52,7 +65,7 @@ export function prepareDocument(input: DocumentInput, requireComplete: boolean) 
       unit: (line.unit || "").trim(),
       unitPrice: line.unitPrice ?? null,
     }))
-    .filter((line) => line.description || line.qty != null || line.unit || line.unitPrice != null);
+    .filter((line) => !isBlankLine(line));
 
   if (lines.length > 30) throw new HttpError(400, "An invoice can have at most 30 lines.");
 

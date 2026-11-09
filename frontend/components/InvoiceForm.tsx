@@ -82,6 +82,18 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
   }
 
   function payload() {
+    const mapped = lines.map((line) => ({
+      description: line.description,
+      qty: line.qty === null || line.qty === undefined || Number.isNaN(Number(line.qty)) ? null : Number(line.qty),
+      unit: line.unit,
+      unitPrice:
+        line.unitPrice === null || line.unitPrice === undefined || line.unitPrice === ("" as unknown as number)
+          ? null
+          : Number(line.unitPrice),
+    }));
+    // Drop empty placeholder rows so Save / Finalize are not blocked by blank lines.
+    const filled = mapped.filter((line) => line.description.trim() || line.unitPrice != null);
+
     return {
       invoiceDate: invoiceDate || null,
       dueDate: dueDate || null,
@@ -96,12 +108,7 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
       taxRounding,
       otherChargesLabel: otherLabel,
       otherCharges: Number(otherCharges) || 0,
-      lines: lines.map((line) => ({
-        description: line.description,
-        qty: line.qty === null || line.qty === undefined || Number.isNaN(Number(line.qty)) ? null : Number(line.qty),
-        unit: line.unit,
-        unitPrice: line.unitPrice === null || line.unitPrice === undefined || line.unitPrice === ("" as unknown as number) ? null : Number(line.unitPrice),
-      })),
+      lines: filled,
     };
   }
 
