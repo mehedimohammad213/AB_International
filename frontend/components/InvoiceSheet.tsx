@@ -27,7 +27,7 @@ export default function InvoiceSheet({
     <article className="sheet">
       <header className="sheet-top">
         <img src="/logo.png" alt="AB International" />
-        <div>
+        <div className="sheet-top-title">
           <h1>{settings.documentTitle || "請求書"}</h1>
           <p>{settings.documentSubtitle || "INVOICE"}</p>
         </div>
@@ -68,7 +68,7 @@ export default function InvoiceSheet({
         <span>{yen(invoice.grandTotal)}</span>
       </div>
 
-      <table>
+      <table className="sheet-lines">
         <thead>
           <tr>
             <th>No.</th>
@@ -83,7 +83,7 @@ export default function InvoiceSheet({
           {(invoice.lines || []).map((line, index) => (
             <tr key={`${line.description}-${index}`}>
               <td>{index + 1}</td>
-              <td>{line.description}</td>
+              <td className="wrap">{line.description}</td>
               <td className="num">{line.qty}</td>
               <td>{line.unit}</td>
               <td className="num">{yen(line.unitPrice)}</td>

@@ -232,6 +232,7 @@ tr.click:hover { background: #fbf6ee; cursor: pointer; }
   align-items: center;
 }
 .sheet-top img { width: 150px; }
+.sheet-top-title { text-align: right; }
 .sheet-top h1 { margin: 0; font-size: 34px; letter-spacing: 0.12em; }
 .sheet-top p { margin: 0; letter-spacing: 0.28em; color: #b8963e; }
 .sheet-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; }
@@ -244,7 +245,9 @@ tr.click:hover { background: #fbf6ee; cursor: pointer; }
   font-size: 22px;
   font-weight: 700;
 }
-.sheet table th { color: #5c534c; }
+.sheet-lines { width: 100%; }
+.sheet-lines th { color: #5c534c; }
+.sheet-lines td.wrap { white-space: normal; }
 .sheet .foot { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; margin-top: 16px; }
 .muted { color: #6d645c; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -342,8 +345,56 @@ tr.click:hover { background: #fbf6ee; cursor: pointer; }
 }
 
 @media print {
+  @page {
+    margin: 12mm;
+  }
+
   body { background: white; }
   .no-print, .nav { display: none !important; }
   .sheet-page { padding: 0; background: white; }
-  .sheet { box-shadow: none; width: auto; }
+  .sheet {
+    box-shadow: none;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sheet-top {
+    position: static;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin: 0 0 14px;
+    padding: 0 0 12px;
+    background: white;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .sheet-top img { width: 140px; }
+  .sheet-top-title { text-align: right; }
+  .sheet-top h1 { font-size: 30px; }
+
+  .sheet-grid {
+    display: grid !important;
+    grid-template-columns: 1.2fr 0.8fr !important;
+    gap: 18px !important;
+  }
+  .sheet .foot {
+    display: grid !important;
+    grid-template-columns: 1.1fr 0.9fr !important;
+    gap: 18px !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sheet-lines { width: 100%; }
+  .sheet-lines thead { display: table-header-group; }
+  .sheet-lines tr { break-inside: avoid; page-break-inside: avoid; }
+  .amount-box,
+  .banner {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
