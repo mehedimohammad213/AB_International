@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import InvoiceSheet from "@/components/InvoiceSheet";
 import { api } from "@/lib/api";
+import { printDocument } from "@/lib/print";
 import type { Draft, Invoice, SettingsBundle } from "@/lib/types";
 
 export default function PrintDraftPage() {
@@ -66,7 +67,7 @@ export default function PrintDraftPage() {
   return (
     <div className="sheet-page">
       <div className="actions no-print" style={{ width: "min(920px, 100%)", margin: "0 auto 12px" }}>
-        <button className="btn gold" type="button" onClick={() => window.print()}>Print / Save PDF</button>
+        <button className="btn gold" type="button" onClick={printDocument}>Print / Save PDF</button>
         <Link className="btn ghost" href="/invoices">Back</Link>
       </div>
       <InvoiceSheet settings={settings.settings} invoice={invoice} draft />
