@@ -225,15 +225,15 @@ tr.click:hover { background: #fbf6ee; cursor: pointer; }
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  background: #14110f;
-  color: white;
+  background: white;
+  color: #1a1a1a;
   margin: -28px -32px 18px;
   padding: 18px 28px;
   align-items: center;
 }
 .sheet-top img { width: 150px; }
 .sheet-top h1 { margin: 0; font-size: 34px; letter-spacing: 0.12em; }
-.sheet-top p { margin: 0; letter-spacing: 0.28em; color: #e7c98a; }
+.sheet-top p { margin: 0; letter-spacing: 0.28em; color: #b8963e; }
 .sheet-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; }
 .amount-box {
   margin: 16px 0;
