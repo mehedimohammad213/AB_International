@@ -186,6 +186,13 @@ export type Payment = {
   recordedAt: string;
 };
 
+export type PaymentPage = {
+  items: Payment[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type Dashboard = {
   year: number;
   finalizedInvoices: number;

@@ -149,8 +149,8 @@ router.post(
   "/:id/finalize",
   asyncRoute(async (req, res) => {
     const id = Number(req.params.id);
-    const invoiceId = await withTx(async (client) => finalizeDraft(client, id, operatorName(req)));
-    res.status(201).json({ id: invoiceId });
+    const created = await withTx(async (client) => finalizeDraft(client, id, operatorName(req)));
+    res.status(201).json(created);
   })
 );
 
@@ -379,7 +379,7 @@ async function finalizeDraft(client: PoolClient, draftId: number, operator: stri
     document: invoiceNo,
     details: `${customer?.name || "No customer"} / ${yen(prepared.totals.grandTotal)} / ${prepared.lines.length} line(s)`,
   });
-  return invoiceId;
+  return { id: invoiceId, invoiceNo };
 }
 
 async function movePayments(

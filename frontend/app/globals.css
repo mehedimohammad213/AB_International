@@ -188,6 +188,8 @@ tr.click:hover { background: #fbf6ee; cursor: pointer; }
 .pill.Overpaid { background: #ece7ff; color: #4c3d8f; }
 .pill.Cancelled, .pill.Reversed, .pill.Discarded { background: #eceae7; color: #666; }
 .pill.Issued, .pill.Open, .pill.Payment { background: #e7f1f6; color: #1d5670; }
+.pill.Reversal { background: #fde8ea; color: #a61e36; }
+.pill.Transfer { background: #fff1d6; color: #8a5a10; }
 
 .bars { display: grid; gap: 8px; }
 .bar-row { display: grid; grid-template-columns: 42px 1fr 90px; gap: 8px; align-items: center; font-size: 13px; }

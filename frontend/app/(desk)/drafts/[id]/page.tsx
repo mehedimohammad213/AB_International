@@ -38,7 +38,13 @@ export default function DraftEditorPage() {
           <p>Open drafts stay out of the register until you finalize them.</p>
         </div>
       </div>
-      <InvoiceForm customers={customers} units={bundle.units} settings={bundle.settings} draft={draft} />
+      <InvoiceForm
+        customers={customers}
+        units={bundle.units}
+        methods={bundle.methods}
+        settings={bundle.settings}
+        draft={draft}
+      />
     </>
   );
 }

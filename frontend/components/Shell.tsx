@@ -9,8 +9,9 @@ const links = [
   { href: "/", label: "Dashboard", ja: "経営サマリー" },
   { href: "/customers", label: "Customers", ja: "顧客一覧" },
   { href: "/invoices", label: "Invoices", ja: "請求書" },
+  // { href: "/payments", label: "Payments", ja: "入金履歴" },
   { href: "/settings", label: "Settings", ja: "設定" },
-  { href: "/audit", label: "Audit log", ja: "操作履歴" },
+  // { href: "/audit", label: "Audit log", ja: "操作履歴" },
 ];
 
 export default function Shell({ children }: { children: React.ReactNode }) {

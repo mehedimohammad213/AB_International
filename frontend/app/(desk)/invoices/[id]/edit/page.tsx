@@ -51,7 +51,13 @@ export default function EditInvoicePage() {
         </div>
         <Link className="btn ghost" href={`/invoices/${invoice.id}`}>View invoice</Link>
       </div>
-      <InvoiceForm customers={customers} units={bundle.units} settings={bundle.settings} invoice={invoice} />
+      <InvoiceForm
+        customers={customers}
+        units={bundle.units}
+        methods={bundle.methods}
+        settings={bundle.settings}
+        invoice={invoice}
+      />
     </>
   );
 }

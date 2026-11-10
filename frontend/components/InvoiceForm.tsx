@@ -11,6 +11,7 @@ import type { Customer, CustomerInput, Draft, Invoice, Line, Settings } from "@/
 type Props = {
   customers: Customer[];
   units: string[];
+  methods: string[];
   settings: Settings;
   draft?: Draft | null;
   invoice?: Invoice | null;
@@ -24,7 +25,7 @@ function initialLines(draft?: Draft | null, invoice?: Invoice | null) {
   return [emptyLine(), emptyLine(), emptyLine()];
 }
 
-export default function InvoiceForm({ customers, units, settings, draft, invoice }: Props) {
+export default function InvoiceForm({ customers, units, methods, settings, draft, invoice }: Props) {
   const router = useRouter();
   const editingInvoice = Boolean(invoice);
   const creatingInvoice = !invoice && !draft;
@@ -47,12 +48,23 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
   const [otherLabel, setOtherLabel] = useState(invoice?.otherChargesLabel || draft?.otherChargesLabel || "");
   const [otherCharges, setOtherCharges] = useState(invoice?.otherCharges || draft?.otherCharges || 0);
   const [lines, setLines] = useState<Line[]>(initialLines(draft, invoice));
+  const [paymentDate, setPaymentDate] = useState(
+    editingInvoice ? todayIso() : invoice?.invoiceDate || draft?.invoiceDate || todayIso()
+  );
+  const [paymentAmount, setPaymentAmount] = useState<number | "">("");
+  const [paymentMethod, setPaymentMethod] = useState(methods[0] || "");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentRemarks, setPaymentRemarks] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [draftId, setDraftId] = useState<number | null>(draft?.id || null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [customerSaving, setCustomerSaving] = useState(false);
   const [customerError, setCustomerError] = useState("");
+
+  useEffect(() => {
+    if (!paymentMethod && methods[0]) setPaymentMethod(methods[0]);
+  }, [methods, paymentMethod]);
 
   useEffect(() => {
     setPeople(customers);
@@ -130,6 +142,19 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
     }
   }
 
+  async function recordOptionalPayment(invoiceNo: string) {
+    if (paymentAmount === "" || Number(paymentAmount) <= 0) return;
+    if (!paymentMethod.trim()) throw new ApiError(400, "Choose a payment method.");
+    await send("/api/payments", {
+      invoiceNo,
+      paymentDate: paymentDate || todayIso(),
+      amount: Number(paymentAmount),
+      method: paymentMethod,
+      reference: paymentReference,
+      remarks: paymentRemarks,
+    });
+  }
+
   async function saveInvoice() {
     if (!invoice) return;
     if (!window.confirm(`Save changes to ${invoice.invoiceNo}? The invoice number stays the same.`)) return;
@@ -137,11 +162,21 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
     setError("");
     try {
       await api<Invoice>(`/api/invoices/${invoice.id}`, { method: "PUT", body: JSON.stringify(payload()) });
-      router.push(`/invoices/${invoice.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save the invoice.");
       setBusy(false);
+      return;
     }
+    try {
+      await recordOptionalPayment(invoice.invoiceNo);
+    } catch (err) {
+      window.alert(
+        err instanceof ApiError
+          ? `Invoice saved, but payment failed: ${err.message}`
+          : "Invoice saved, but the payment could not be recorded."
+      );
+    }
+    router.push(`/invoices/${invoice.id}`);
   }
 
   async function finalize(redirectToList = false) {
@@ -153,16 +188,29 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
     }
     setBusy(true);
     setError("");
+    let result: { id: number; invoiceNo: string };
     try {
       const saved = draftId
         ? await api<Draft>(`/api/drafts/${draftId}`, { method: "PUT", body: JSON.stringify(payload()) })
         : await api<Draft>("/api/drafts", { method: "POST", body: JSON.stringify(payload()) });
-      const result = await api<{ id: number }>(`/api/drafts/${saved.id}/finalize`, { method: "POST" });
-      router.push(redirectToList || creatingInvoice ? "/invoices" : `/invoices/${result.id}`);
+      result = await api<{ id: number; invoiceNo: string }>(`/api/drafts/${saved.id}/finalize`, { method: "POST" });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : creatingInvoice ? "Could not create the invoice." : "Could not finalize the invoice.");
       setBusy(false);
+      return;
     }
+    try {
+      await recordOptionalPayment(result.invoiceNo);
+    } catch (err) {
+      window.alert(
+        err instanceof ApiError
+          ? `Invoice created, but payment failed: ${err.message}`
+          : "Invoice created, but the payment could not be recorded."
+      );
+      router.push(`/invoices/${result.id}`);
+      return;
+    }
+    router.push(redirectToList || creatingInvoice ? "/invoices" : `/invoices/${result.id}`);
   }
 
   async function discard() {
@@ -215,7 +263,10 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
         <div className="row">
           <label>Date<input type="date" value={invoiceDate} onChange={(event) => {
             setInvoiceDate(event.target.value);
-            if (event.target.value) setDueDate(addDays(event.target.value, settings.defaultDueDays));
+            if (event.target.value) {
+              setDueDate(addDays(event.target.value, settings.defaultDueDays));
+              if (!editingInvoice) setPaymentDate(event.target.value);
+            }
           }} /></label>
           <label>Due date 支払期限<input type="date" value={dueDate || ""} onChange={(event) => setDueDate(event.target.value)} /></label>
           {!creatingInvoice && (
@@ -333,6 +384,55 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
           <div><span>Other</span><span>{yen(totals.otherCharges)}</span></div>
           <div className="grand"><span>Grand total</span><span>{yen(totals.grandTotal)}</span></div>
         </div>
+
+        <div style={{ height: 16 }} />
+        <h2>Payment 入金</h2>
+        {editingInvoice && (
+          <p className="note">
+            Already received {yen(invoice?.received || 0)} · Outstanding {yen(invoice?.outstanding || 0)}
+          </p>
+        )}
+        <label>
+          Payment date
+          <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
+        </label>
+        <div style={{ height: 8 }} />
+        <label>
+          Amount received ¥
+          <input
+            type="number"
+            step="1"
+            min="1"
+            value={paymentAmount}
+            placeholder="Optional"
+            onChange={(event) => setPaymentAmount(event.target.value === "" ? "" : Number(event.target.value))}
+          />
+        </label>
+        <div style={{ height: 8 }} />
+        <label>
+          Method
+          <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+            {methods.length === 0 && <option value="">No methods configured</option>}
+            {methods.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+        <div style={{ height: 8 }} />
+        <label>
+          Reference
+          <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} />
+        </label>
+        <div style={{ height: 8 }} />
+        <label>
+          Payment remarks
+          <input value={paymentRemarks} onChange={(event) => setPaymentRemarks(event.target.value)} />
+        </label>
+        <p className="note">
+          Leave amount blank to skip. Leave filled to record payment when you{" "}
+          {editingInvoice ? "save" : creatingInvoice ? "create" : "finalize"}.
+        </p>
+
         <div className="actions" style={{ marginTop: 16 }}>
           {editingInvoice ? (
             <>
@@ -353,7 +453,7 @@ export default function InvoiceForm({ customers, units, settings, draft, invoice
         </div>
         <p className="note">
           {editingInvoice
-            ? "Edits keep the same invoice number. Payments already recorded stay attached."
+            ? "Edits keep the same invoice number. Existing payments stay attached."
             : creatingInvoice
               ? "Creates the invoice with a permanent number, then returns to the register."
               : "Saving a draft does not issue a number. Finalized numbers are never reused."}

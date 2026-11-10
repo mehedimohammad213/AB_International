@@ -25,7 +25,14 @@ export default function NewInvoicePage() {
           <p>Create issues the permanent number, starting at {bundle?.settings.nextInvoicePreview || "…"}, then returns to the register.</p>
         </div>
       </div>
-      {bundle && <InvoiceForm customers={customers} units={bundle.units} settings={bundle.settings} />}
+      {bundle && (
+        <InvoiceForm
+          customers={customers}
+          units={bundle.units}
+          methods={bundle.methods}
+          settings={bundle.settings}
+        />
+      )}
     </>
   );
 }

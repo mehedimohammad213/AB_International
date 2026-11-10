@@ -24,17 +24,79 @@ const paymentSchema = z.object({
 router.get(
   "/",
   asyncRoute(async (req, res) => {
-    const invoiceNo = String(req.query.invoiceNo || "").trim();
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    const search = String(req.query.q || req.query.invoiceNo || "").trim();
+    const from = String(req.query.from || "");
+    const to = String(req.query.to || "");
+    const entryType = String(req.query.entryType || "All");
+    const status = String(req.query.status || "All");
+    const method = String(req.query.method || "All");
+    const paginate = req.query.page != null;
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+
+    if (search) {
+      params.push(`%${search}%`);
+      clauses.push(
+        `(i.invoice_no ILIKE $${params.length} OR p.payment_code ILIKE $${params.length} OR p.customer_name ILIKE $${params.length} OR p.reference ILIKE $${params.length})`
+      );
+    }
+    if (from) {
+      params.push(from);
+      clauses.push(`p.payment_date >= $${params.length}`);
+    }
+    if (to) {
+      params.push(to);
+      clauses.push(`p.payment_date <= $${params.length}`);
+    }
+    if (entryType !== "All") {
+      params.push(entryType);
+      clauses.push(`p.entry_type = $${params.length}`);
+    }
+    if (status !== "All") {
+      params.push(status);
+      clauses.push(`p.status = $${params.length}`);
+    }
+    if (method !== "All") {
+      params.push(method);
+      clauses.push(`p.method = $${params.length}`);
+    }
+
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const baseFrom = `FROM payments p
+       JOIN invoices i ON i.id = p.invoice_id
+       LEFT JOIN payments r ON r.id = p.reverses_payment_id`;
+
+    if (!paginate) {
+      const result = await query(
+        `SELECT p.*, i.invoice_no, r.payment_code AS reverses_code
+         ${baseFrom}
+         ${where}
+         ORDER BY p.recorded_at DESC, p.id DESC`,
+        params
+      );
+      res.json(camels(result.rows));
+      return;
+    }
+
+    const countResult = await query(`SELECT COUNT(*)::int AS total ${baseFrom} ${where}`, params);
+    const total = Number(countResult.rows[0]?.total || 0);
+    const offset = (page - 1) * pageSize;
     const result = await query(
       `SELECT p.*, i.invoice_no, r.payment_code AS reverses_code
-       FROM payments p
-       JOIN invoices i ON i.id = p.invoice_id
-       LEFT JOIN payments r ON r.id = p.reverses_payment_id
-       WHERE ($1 = '' OR i.invoice_no ILIKE $2)
-       ORDER BY p.recorded_at DESC, p.id DESC`,
-      [invoiceNo, `%${invoiceNo}%`]
+       ${baseFrom}
+       ${where}
+       ORDER BY p.recorded_at DESC, p.id DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, offset]
     );
-    res.json(camels(result.rows));
+    res.json({
+      items: camels(result.rows),
+      total,
+      page,
+      pageSize,
+    });
   })
 );
 
