@@ -10,6 +10,15 @@ export function ymd(value: string | null | undefined) {
   return `${year}/${month}/${day}`;
 }
 
+/** Japanese invoice date like ２０２６年０４月０１日 */
+export function ymdJa(value: string | null | undefined) {
+  if (!value) return "—";
+  const [year, month, day] = value.slice(0, 10).split("-");
+  if (!year || !month || !day) return "—";
+  const full = (part: string) => part.replace(/\d/g, (digit) => "０１２３４５６７８９"[Number(digit)]);
+  return `${full(year)}年${full(month)}月${full(day)}日`;
+}
+
 export function stamp(value: string | null | undefined) {
   if (!value) return "—";
   const date = new Date(value);

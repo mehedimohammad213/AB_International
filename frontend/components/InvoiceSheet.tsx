@@ -1,5 +1,7 @@
-import { ymd, yen } from "@/lib/format";
+import { yen, ymdJa } from "@/lib/format";
 import type { Invoice, Settings } from "@/lib/types";
+
+const MIN_ITEM_ROWS = 7;
 
 export default function InvoiceSheet({
   settings,
@@ -10,140 +12,121 @@ export default function InvoiceSheet({
   invoice: Invoice;
   draft?: boolean;
 }) {
+  const postal = invoice.postalCode.replace(/^〒/, "").trim();
+  const companyPostal = settings.postalCode.replace(/^〒/, "").trim();
   const company = invoice.companyName.trim();
   const person = invoice.customerName.trim();
-  const postal = invoice.postalCode.replace(/^〒/, "");
-  const reg = invoice.customerRegNo.trim();
-  const hideEmail = !settings.email || settings.email.startsWith("[");
-  const taxPercent = Math.round(invoice.taxRate * 1000) / 10;
-  const taxCaption =
-    invoice.taxRate === 0
-      ? settings.taxLabel || "消費税"
-      : invoice.taxMode.startsWith("Inc")
-        ? `${invoice.taxLabel} (${taxPercent}% 内税)`
-        : `${invoice.taxLabel} (${taxPercent}%)`;
-
-  const renderHeader = () => (
-    <header className="sheet-top">
-      <img src="/logo.png" alt="AB International" />
-      <div className="sheet-top-title">
-        <h1>{settings.documentTitle || "請求書"}</h1>
-        <p>{settings.documentSubtitle || "INVOICE"}</p>
-      </div>
-    </header>
-  );
+  const displayName = company || person;
+  const lines = invoice.lines || [];
+  const blankCount = Math.max(0, MIN_ITEM_ROWS - lines.length);
+  const intro = settings.introSentence?.trim() || "下記のとおりご請求書申し上げます";
 
   return (
-    <article className="sheet">
-      <div className="sheet-top-screen">{renderHeader()}</div>
+    <article className="sheet sora-sheet">
+      <div className="sora-title">{settings.documentTitle || "請求書"}</div>
 
-      <table className="sheet-frame">
+      <div className="sora-date">
+        <div>{ymdJa(invoice.invoiceDate)}</div>
+        {invoice.invoiceNo && <div className="sora-invoice-no">請求書番号 {invoice.invoiceNo}</div>}
+      </div>
+
+      {draft && <div className="banner">下書き DRAFT — 未確定 / not a finalized invoice</div>}
+      {invoice.recordStatus === "Cancelled" && (
+        <div className="banner bad">取消 CANCELLED — この請求書は無効です / this invoice has been cancelled</div>
+      )}
+
+      <div className="sora-parties">
+        <div className="sora-party left">
+          {postal && <div>〒{postal}</div>}
+          {invoice.address && <div>{invoice.address}</div>}
+          {displayName && <strong>{displayName}</strong>}
+        </div>
+        <div className="sora-party right">
+          {companyPostal && <div>〒{companyPostal}</div>}
+          {settings.address && <div>{settings.address}</div>}
+          <strong>{settings.companyNameJa || settings.companyNameEn}</strong>
+          {settings.telFax && <div>TEL/FAX: {settings.telFax}</div>}
+          {settings.mobile && <div>携帯：{settings.mobile}</div>}
+        </div>
+      </div>
+
+      <p className="sora-intro">{intro}</p>
+
+      <div className="sora-amount">
+        <span>合計金額</span>
+        <span>{yen(invoice.grandTotal)}</span>
+      </div>
+
+      <table className="sora-lines">
         <thead>
           <tr>
-            <th className="sheet-frame-head" scope="col">
-              <div className="sheet-top-print">{renderHeader()}</div>
-            </th>
+            <th>商品</th>
+            <th>数量</th>
+            <th>金額</th>
           </tr>
         </thead>
         <tbody>
+          {lines.map((line, index) => (
+            <tr key={`${line.description}-${index}`}>
+              <td className="wrap">{line.description}</td>
+              <td className="qty">{line.qty}</td>
+              <td className="num">{yen(line.lineTotal)}</td>
+            </tr>
+          ))}
+          {Array.from({ length: blankCount }).map((_, index) => (
+            <tr key={`blank-${index}`} className="blank">
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <table className="sora-summary">
+        <tbody>
           <tr>
-            <td className="sheet-frame-body">
-              {draft && <div className="banner">下書き DRAFT — 未確定 / not a finalized invoice</div>}
-              {invoice.recordStatus === "Cancelled" && (
-                <div className="banner bad">取消 CANCELLED — この請求書は無効です / this invoice has been cancelled</div>
-              )}
-
-              <div className="sheet-grid">
-                <div className="sheet-col">
-                  {postal && <div>〒{postal}</div>}
-                  {invoice.address && <div>{invoice.address}</div>}
-                  <strong>{company ? `${company} 御中` : person ? `${person} 様` : ""}</strong>
-                  {company && person && <div>ご担当: {person} 様</div>}
-                  {reg && <div>登録番号: {reg}</div>}
-                </div>
-                <div className="sheet-col">
-                  <div>請求書番号 No. <strong>{invoice.invoiceNo}</strong></div>
-                  <div>請求日 Date {ymd(invoice.invoiceDate)}</div>
-                  <div>お支払期限 Due {ymd(invoice.dueDate)}</div>
-                  <div className="muted" style={{ marginTop: 10 }}>{settings.companyNameJa}</div>
-                  <div>{settings.companyNameEn}</div>
-                  <div>{settings.postalCode} {settings.address}</div>
-                  {settings.telFax && <div>TEL/FAX: {settings.telFax}</div>}
-                  {settings.mobile && <div>携帯: {settings.mobile}</div>}
-                  {settings.registrationNo && <div>登録番号: {settings.registrationNo}</div>}
-                  {!hideEmail && <div>Email: {settings.email}</div>}
-                </div>
-              </div>
-
-              <p>{settings.introSentence}</p>
-              {invoice.subject && <div>件名: {invoice.subject}</div>}
-
-              <div className="amount-box">
-                <span>ご請求金額</span>
-                <span>{yen(invoice.grandTotal)}</span>
-              </div>
-
-              <table className="sheet-lines">
-                <thead>
-                  <tr>
-                    <th>No.</th>
-                    <th>品名 Description</th>
-                    <th className="num">数量</th>
-                    <th>単位</th>
-                    <th className="num">単価 (¥)</th>
-                    <th className="num">金額 (¥)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(invoice.lines || []).map((line, index) => (
-                    <tr key={`${line.description}-${index}`}>
-                      <td>{index + 1}</td>
-                      <td className="wrap">{line.description}</td>
-                      <td className="num">{line.qty}</td>
-                      <td>{line.unit}</td>
-                      <td className="num">{yen(line.unitPrice)}</td>
-                      <td className="num">{yen(line.lineTotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </td>
+            <th>小計</th>
+            <td>{invoice.subtotal ? yen(invoice.subtotal) : ""}</td>
           </tr>
-          <tr className="sheet-foot-row">
-            <td className="sheet-frame-body">
-              <div className="foot">
-                <div className="sheet-col">
-                  <strong>振込先 Bank transfer</strong>
-                  <div>{settings.bankBranch}</div>
-                  <div>{settings.accountTypeNumber}</div>
-                  <div>口座名義: {settings.accountName}</div>
-                  <div>{settings.transferNote}</div>
-                  {invoice.terms && <p>支払条件: {invoice.terms}</p>}
-                  {(invoice.remarks || invoice.replacesNo) && (
-                    <>
-                      <strong>備考 Remarks</strong>
-                      <div>{invoice.remarks}</div>
-                      {invoice.replacesNo && (
-                        <div>本請求書は {invoice.replacesNo} を訂正・再発行したものです。 (Replaces invoice {invoice.replacesNo})</div>
-                      )}
-                    </>
-                  )}
-                </div>
-                <div className="sheet-col totals">
-                  <div><span>小計 Subtotal</span><span>{yen(invoice.subtotal)}</span></div>
-                  <div><span>値引 Discount</span><span>{invoice.discount ? yen(-invoice.discount) : yen(0)}</span></div>
-                  <div><span>{taxCaption}</span><span>{yen(invoice.tax)}</span></div>
-                  <div><span>{invoice.otherChargesLabel || "その他 Other charges"}</span><span>{yen(invoice.otherCharges)}</span></div>
-                  <div className="grand"><span>{invoice.tax ? "合計 Total (税込)" : "合計 Total"}</span><span>{yen(invoice.grandTotal)}</span></div>
-                  {!draft && <div><span>入金済 Paid</span><span>{yen(-invoice.received)}</span></div>}
-                  {!draft && <div><span>差引残高 Balance due</span><span>{yen(invoice.outstanding)}</span></div>}
-                </div>
-              </div>
-              <p className="muted">金額は日本円 (JPY) で表示しています | Amounts in Japanese Yen (JPY)</p>
-            </td>
+          {!!invoice.discount && (
+            <tr>
+              <th>値引</th>
+              <td>{yen(-invoice.discount)}</td>
+            </tr>
+          )}
+          <tr>
+            <th>消費税</th>
+            <td>{invoice.tax ? yen(invoice.tax) : ""}</td>
+          </tr>
+          {!!invoice.otherCharges && (
+            <tr>
+              <th>{invoice.otherChargesLabel || "その他"}</th>
+              <td>{yen(invoice.otherCharges)}</td>
+            </tr>
+          )}
+          <tr className="total">
+            <th>合計(税込)</th>
+            <td>{yen(invoice.grandTotal)}</td>
           </tr>
         </tbody>
       </table>
+
+      <div className="sora-bank">
+        <strong>振込先</strong>
+        {settings.accountName && <div>{settings.accountName}</div>}
+        {settings.bankBranch && <div>{settings.bankBranch}</div>}
+        {settings.accountTypeNumber && <div>{settings.accountTypeNumber}</div>}
+        {settings.transferNote && <div>{settings.transferNote}</div>}
+      </div>
+
+      <div className="sora-remarks">
+        <strong>備考</strong>
+        {invoice.subject && <div>件名: {invoice.subject}</div>}
+        {invoice.terms && <div>{invoice.terms}</div>}
+        {invoice.remarks && <div>{invoice.remarks}</div>}
+        {invoice.replacesNo && <div>本請求書は {invoice.replacesNo} を訂正・再発行したものです。</div>}
+      </div>
     </article>
   );
 }

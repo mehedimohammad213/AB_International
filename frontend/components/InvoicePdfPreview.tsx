@@ -13,10 +13,9 @@ export default function InvoicePdfPreview({
   invoice: Invoice;
   draft?: boolean;
 }) {
-  const logoSrc = typeof window !== "undefined" ? `${window.location.origin}/logo.png` : "/logo.png";
   const fileName = `${invoice.invoiceNo || "invoice"}.pdf`;
   const renderDoc = () => (
-    <InvoicePdfDocument settings={settings} invoice={invoice} draft={draft} logoSrc={logoSrc} />
+    <InvoicePdfDocument settings={settings} invoice={invoice} draft={draft} />
   );
 
   return (

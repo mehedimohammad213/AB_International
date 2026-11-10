@@ -1,54 +1,48 @@
 "use client";
 
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { ymd, yen } from "@/lib/format";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { yen, ymdJa } from "@/lib/format";
 import { ensurePdfFonts } from "@/lib/pdf-fonts";
 import type { Invoice, Settings } from "@/lib/types";
 
 ensurePdfFonts();
 
+const MIN_ITEM_ROWS = 7;
+const ACCENT = "#3A7FC1";
+
 const styles = StyleSheet.create({
   page: {
     fontFamily: "NotoSansJP",
     fontSize: 10,
-    color: "#1a1a1a",
-    // Must clear fixed header: top(24) + logo height(78) + gap(~16)
-    paddingTop: 120,
+    color: "#111",
+    paddingTop: 36,
     paddingBottom: 36,
-    paddingHorizontal: 40,
+    paddingHorizontal: 42,
   },
-  header: {
-    position: "absolute",
-    top: 24,
-    left: 40,
-    right: 40,
-    height: 78,
-    flexDirection: "row",
-    justifyContent: "space-between",
+  titleBox: {
+    borderWidth: 1,
+    borderColor: "#111",
+    backgroundColor: ACCENT,
+    paddingVertical: 8,
     alignItems: "center",
-  },
-  logo: {
-    // Match on-screen invoice with native aspect so it sits flush left
-    width: 135,
-    height: 78,
-  },
-  titleBlock: {
-    height: 78,
-    alignItems: "flex-end",
-    justifyContent: "center",
+    marginBottom: 10,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 700,
-    letterSpacing: 3,
-    lineHeight: 1.1,
+    letterSpacing: 8,
+    color: "#111",
   },
-  subtitle: {
+  dateRow: {
+    alignItems: "flex-end",
+    marginBottom: 14,
+  },
+  dateText: {
     fontSize: 11,
-    color: "#b8963e",
-    letterSpacing: 4,
-    marginTop: 4,
-    lineHeight: 1.2,
+  },
+  invoiceNo: {
+    fontSize: 9,
+    marginTop: 2,
   },
   banner: {
     backgroundColor: "#fff6df",
@@ -62,107 +56,201 @@ const styles = StyleSheet.create({
     backgroundColor: "#fdecee",
     borderColor: "#e7b4bc",
   },
-  grid: {
+  parties: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  colLeft: {
-    width: "55%",
-    paddingRight: 14,
+  partyLeft: {
+    width: "50%",
+    paddingRight: 12,
   },
-  colRight: {
-    width: "45%",
-    paddingLeft: 8,
+  partyRight: {
+    width: "50%",
+    paddingLeft: 12,
   },
-  line: { marginBottom: 2 },
-  strong: { fontWeight: 700, marginTop: 2, marginBottom: 2 },
-  muted: { color: "#6d645c" },
-  intro: { marginTop: 4, marginBottom: 6 },
+  line: { marginBottom: 2, fontSize: 10 },
+  lineRight: { marginBottom: 2, fontSize: 10, textAlign: "right" },
+  partyName: { fontSize: 12, fontWeight: 700, marginTop: 4, marginBottom: 2 },
+  partyNameRight: { fontSize: 12, fontWeight: 700, marginTop: 4, marginBottom: 2, textAlign: "right" },
+  intro: { marginBottom: 12, fontSize: 10 },
   amountBox: {
-    borderWidth: 2,
-    borderColor: "#1a1a1a",
+    borderWidth: 1,
+    borderColor: "#111",
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginVertical: 10,
+    marginBottom: 14,
   },
-  amountLabel: { fontSize: 14, fontWeight: 700 },
-  amountValue: { fontSize: 16, fontWeight: 700 },
-  table: { width: "100%", marginTop: 4 },
+  amountLabelCell: {
+    width: "40%",
+    borderRightWidth: 1,
+    borderRightColor: "#111",
+    backgroundColor: ACCENT,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  amountLabel: {
+    fontSize: 13,
+    fontWeight: 700,
+    textAlign: "center",
+  },
+  amountValueCell: {
+    width: "60%",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  amountValue: {
+    fontSize: 16,
+    fontWeight: 700,
+    textAlign: "center",
+  },
+  table: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#111",
+    marginBottom: 10,
+  },
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#cfc3b4",
-    paddingBottom: 5,
-    marginBottom: 2,
+    borderBottomColor: "#111",
+    backgroundColor: ACCENT,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#f3ebe2",
-    paddingVertical: 5,
-    alignItems: "flex-start",
+    borderBottomColor: "#111",
+    minHeight: 22,
   },
-  th: { fontSize: 8, color: "#5c534c", fontWeight: 700 },
-  td: { fontSize: 9 },
-  cNo: { width: "6%" },
-  cDesc: { width: "40%", paddingRight: 6 },
-  cQty: { width: "12%", textAlign: "right", paddingRight: 6 },
-  cUnit: { width: "12%", paddingLeft: 4 },
-  cPrice: { width: "15%", textAlign: "right" },
-  cAmt: { width: "15%", textAlign: "right" },
-  foot: {
+  tableRowLast: {
     flexDirection: "row",
-    gap: 16,
-    marginTop: 14,
+    minHeight: 22,
   },
-  footLeft: { flex: 1.1 },
-  footRight: { flex: 0.9 },
-  footTitle: { fontWeight: 700, marginBottom: 4 },
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingBottom: 4,
-    marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0e6da",
-  },
-  grandRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    fontSize: 12,
+  th: {
+    fontSize: 10,
     fontWeight: 700,
-    marginTop: 2,
-    marginBottom: 6,
+    textAlign: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 6,
   },
-  footerNote: { marginTop: 10, color: "#6d645c", fontSize: 8 },
+  td: {
+    fontSize: 9,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+  },
+  cItem: {
+    width: "58%",
+    borderRightWidth: 1,
+    borderRightColor: "#111",
+  },
+  cQty: {
+    width: "14%",
+    borderRightWidth: 1,
+    borderRightColor: "#111",
+    textAlign: "center",
+  },
+  cAmt: {
+    width: "28%",
+    textAlign: "right",
+  },
+  summaryWrap: {
+    alignItems: "flex-end",
+    marginBottom: 16,
+  },
+  summaryTable: {
+    width: "42%",
+    borderWidth: 1,
+    borderColor: "#111",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#111",
+    minHeight: 22,
+  },
+  summaryRowLast: {
+    flexDirection: "row",
+    minHeight: 22,
+  },
+  summaryLabelCell: {
+    width: "45%",
+    borderRightWidth: 1,
+    borderRightColor: "#111",
+    backgroundColor: ACCENT,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: 700,
+    textAlign: "center",
+  },
+  summaryValueCell: {
+    width: "55%",
+    justifyContent: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  summaryValue: {
+    fontSize: 10,
+    textAlign: "right",
+  },
+  bankBlock: {
+    marginBottom: 14,
+  },
+  bankTitle: {
+    fontWeight: 700,
+    marginBottom: 4,
+    fontSize: 11,
+  },
+  remarksBox: {
+    borderWidth: 1,
+    borderColor: "#111",
+    minHeight: 70,
+    padding: 8,
+  },
+  remarksTitle: {
+    fontWeight: 700,
+    marginBottom: 4,
+  },
 });
 
-function taxCaption(invoice: Invoice, settings: Settings) {
-  const taxPercent = Math.round(invoice.taxRate * 1000) / 10;
-  if (invoice.taxRate === 0) return settings.taxLabel || "消費税";
-  if (invoice.taxMode.startsWith("Inc")) return `${invoice.taxLabel} (${taxPercent}% 内税)`;
-  return `${invoice.taxLabel} (${taxPercent}%)`;
+function displayName(invoice: Invoice) {
+  const company = invoice.companyName.trim();
+  const person = invoice.customerName.trim();
+  if (company) return company;
+  return person;
 }
 
 export default function InvoicePdfDocument({
   settings,
   invoice,
   draft = false,
-  logoSrc,
 }: {
   settings: Settings;
   invoice: Invoice;
   draft?: boolean;
-  logoSrc: string;
+  logoSrc?: string;
 }) {
-  const company = invoice.companyName.trim();
-  const person = invoice.customerName.trim();
-  const postal = invoice.postalCode.replace(/^〒/, "");
-  const reg = invoice.customerRegNo.trim();
-  const hideEmail = !settings.email || settings.email.startsWith("[");
-  const caption = taxCaption(invoice, settings);
+  const postal = invoice.postalCode.replace(/^〒/, "").trim();
+  const companyPostal = settings.postalCode.replace(/^〒/, "").trim();
+  const lines = invoice.lines || [];
+  const blankCount = Math.max(0, MIN_ITEM_ROWS - lines.length);
+  const intro = settings.introSentence?.trim() || "下記のとおりご請求書申し上げます";
+
+  const summaryRows: { label: string; value: string; last?: boolean }[] = [
+    { label: "小計", value: invoice.subtotal ? yen(invoice.subtotal) : "" },
+  ];
+  if (invoice.discount) summaryRows.push({ label: "値引", value: yen(-invoice.discount) });
+  summaryRows.push({ label: "消費税", value: invoice.tax ? yen(invoice.tax) : "" });
+  if (invoice.otherCharges) {
+    summaryRows.push({ label: invoice.otherChargesLabel || "その他", value: yen(invoice.otherCharges) });
+  }
+  summaryRows.push({ label: "合計(税込)", value: yen(invoice.grandTotal), last: true });
 
   return (
     <Document
@@ -170,13 +258,13 @@ export default function InvoicePdfDocument({
       author={settings.companyNameEn || "AB International"}
     >
       <Page size="A4" style={styles.page}>
-        <View style={styles.header} fixed>
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image src={logoSrc} style={styles.logo} />
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>{settings.documentTitle || "請求書"}</Text>
-            <Text style={styles.subtitle}>{settings.documentSubtitle || "INVOICE"}</Text>
-          </View>
+        <View style={styles.titleBox}>
+          <Text style={styles.title}>{settings.documentTitle || "請求書"}</Text>
+        </View>
+
+        <View style={styles.dateRow}>
+          <Text style={styles.dateText}>{ymdJa(invoice.invoiceDate)}</Text>
+          {invoice.invoiceNo ? <Text style={styles.invoiceNo}>請求書番号 {invoice.invoiceNo}</Text> : null}
         </View>
 
         {draft && (
@@ -190,122 +278,96 @@ export default function InvoicePdfDocument({
           </View>
         )}
 
-        <View style={styles.grid}>
-          <View style={styles.colLeft}>
+        <View style={styles.parties}>
+          <View style={styles.partyLeft}>
             {postal ? <Text style={styles.line}>〒{postal}</Text> : null}
             {invoice.address ? <Text style={styles.line}>{invoice.address}</Text> : null}
-            <Text style={styles.strong}>
-              {company ? `${company} 御中` : person ? `${person} 様` : ""}
-            </Text>
-            {company && person ? <Text style={styles.line}>ご担当: {person} 様</Text> : null}
-            {reg ? <Text style={styles.line}>登録番号: {reg}</Text> : null}
+            {displayName(invoice) ? <Text style={styles.partyName}>{displayName(invoice)}</Text> : null}
           </View>
-          <View style={styles.colRight}>
-            <Text style={styles.line}>
-              請求書番号 No. <Text style={{ fontWeight: 700 }}>{invoice.invoiceNo}</Text>
-            </Text>
-            <Text style={styles.line}>請求日 Date {ymd(invoice.invoiceDate)}</Text>
-            <Text style={styles.line}>お支払期限 Due {ymd(invoice.dueDate)}</Text>
-            <Text style={[styles.muted, styles.line, { marginTop: 10 }]}>{settings.companyNameJa}</Text>
-            <Text style={styles.line}>{settings.companyNameEn}</Text>
-            <Text style={styles.line}>
-              {settings.postalCode} {settings.address}
-            </Text>
-            {settings.telFax ? <Text style={styles.line}>TEL/FAX: {settings.telFax}</Text> : null}
-            {settings.mobile ? <Text style={styles.line}>携帯: {settings.mobile}</Text> : null}
-            {settings.registrationNo ? <Text style={styles.line}>登録番号: {settings.registrationNo}</Text> : null}
-            {!hideEmail ? <Text style={styles.line}>Email: {settings.email}</Text> : null}
+          <View style={styles.partyRight}>
+            {companyPostal ? <Text style={styles.lineRight}>〒{companyPostal}</Text> : null}
+            {settings.address ? <Text style={styles.lineRight}>{settings.address}</Text> : null}
+            <Text style={styles.partyNameRight}>{settings.companyNameJa || settings.companyNameEn}</Text>
+            {settings.telFax ? <Text style={styles.lineRight}>TEL/FAX: {settings.telFax}</Text> : null}
+            {settings.mobile ? <Text style={styles.lineRight}>携帯：{settings.mobile}</Text> : null}
           </View>
         </View>
 
-        <Text style={styles.intro}>{settings.introSentence}</Text>
-        {invoice.subject ? <Text>件名: {invoice.subject}</Text> : null}
+        <Text style={styles.intro}>{intro}</Text>
 
         <View style={styles.amountBox}>
-          <Text style={styles.amountLabel}>ご請求金額</Text>
-          <Text style={styles.amountValue}>{yen(invoice.grandTotal)}</Text>
+          <View style={styles.amountLabelCell}>
+            <Text style={styles.amountLabel}>合計金額</Text>
+          </View>
+          <View style={styles.amountValueCell}>
+            <Text style={styles.amountValue}>{yen(invoice.grandTotal)}</Text>
+          </View>
         </View>
 
         <View style={styles.table}>
-          <View style={styles.tableHeader} fixed>
-            <Text style={[styles.th, styles.cNo]}>No.</Text>
-            <Text style={[styles.th, styles.cDesc]}>品名 Description</Text>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.th, styles.cItem, { textAlign: "center" }]}>商品</Text>
             <Text style={[styles.th, styles.cQty]}>数量</Text>
-            <Text style={[styles.th, styles.cUnit]}>単位</Text>
-            <Text style={[styles.th, styles.cPrice]}>単価 (¥)</Text>
-            <Text style={[styles.th, styles.cAmt]}>金額 (¥)</Text>
+            <Text style={[styles.th, styles.cAmt, { textAlign: "center" }]}>金額</Text>
           </View>
-          {(invoice.lines || []).map((line, index) => (
-            <View key={`${line.description}-${index}`} style={styles.tableRow} wrap={false}>
-              <Text style={[styles.td, styles.cNo]}>{index + 1}</Text>
-              <Text style={[styles.td, styles.cDesc]}>{line.description}</Text>
+
+          {lines.map((line, index) => (
+            <View
+              key={`${line.description}-${index}`}
+              style={index === lines.length - 1 && blankCount === 0 ? styles.tableRowLast : styles.tableRow}
+              wrap={false}
+            >
+              <Text style={[styles.td, styles.cItem]}>{line.description}</Text>
               <Text style={[styles.td, styles.cQty]}>{line.qty ?? ""}</Text>
-              <Text style={[styles.td, styles.cUnit]}>{line.unit}</Text>
-              <Text style={[styles.td, styles.cPrice]}>{yen(line.unitPrice)}</Text>
               <Text style={[styles.td, styles.cAmt]}>{yen(line.lineTotal)}</Text>
+            </View>
+          ))}
+
+          {Array.from({ length: blankCount }).map((_, index) => (
+            <View
+              key={`blank-${index}`}
+              style={index === blankCount - 1 ? styles.tableRowLast : styles.tableRow}
+              wrap={false}
+            >
+              <Text style={[styles.td, styles.cItem]}> </Text>
+              <Text style={[styles.td, styles.cQty]}> </Text>
+              <Text style={[styles.td, styles.cAmt]}> </Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.foot} wrap={false}>
-          <View style={styles.footLeft}>
-            <Text style={styles.footTitle}>振込先 Bank transfer</Text>
-            <Text>{settings.bankBranch}</Text>
-            <Text>{settings.accountTypeNumber}</Text>
-            <Text>口座名義: {settings.accountName}</Text>
-            <Text>{settings.transferNote}</Text>
-            {invoice.terms ? <Text style={{ marginTop: 6 }}>支払条件: {invoice.terms}</Text> : null}
-            {(invoice.remarks || invoice.replacesNo) && (
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.footTitle}>備考 Remarks</Text>
-                {invoice.remarks ? <Text>{invoice.remarks}</Text> : null}
-                {invoice.replacesNo ? (
-                  <Text>
-                    本請求書は {invoice.replacesNo} を訂正・再発行したものです。 (Replaces invoice {invoice.replacesNo})
-                  </Text>
-                ) : null}
+        <View style={styles.summaryWrap} wrap={false}>
+          <View style={styles.summaryTable}>
+            {summaryRows.map((row) => (
+              <View key={row.label} style={row.last ? styles.summaryRowLast : styles.summaryRow}>
+                <View style={styles.summaryLabelCell}>
+                  <Text style={styles.summaryLabel}>{row.label}</Text>
+                </View>
+                <View style={styles.summaryValueCell}>
+                  <Text style={[styles.summaryValue, row.last ? { fontWeight: 700 } : null]}>{row.value}</Text>
+                </View>
               </View>
-            )}
-          </View>
-          <View style={styles.footRight}>
-            <View style={styles.totalRow}>
-              <Text>小計 Subtotal</Text>
-              <Text>{yen(invoice.subtotal)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text>値引 Discount</Text>
-              <Text>{invoice.discount ? yen(-invoice.discount) : yen(0)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text>{caption}</Text>
-              <Text>{yen(invoice.tax)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text>{invoice.otherChargesLabel || "その他 Other charges"}</Text>
-              <Text>{yen(invoice.otherCharges)}</Text>
-            </View>
-            <View style={styles.grandRow}>
-              <Text>{invoice.tax ? "合計 Total (税込)" : "合計 Total"}</Text>
-              <Text>{yen(invoice.grandTotal)}</Text>
-            </View>
-            {!draft && (
-              <>
-                <View style={styles.totalRow}>
-                  <Text>入金済 Paid</Text>
-                  <Text>{yen(-invoice.received)}</Text>
-                </View>
-                <View style={styles.totalRow}>
-                  <Text>差引残高 Balance due</Text>
-                  <Text>{yen(invoice.outstanding)}</Text>
-                </View>
-              </>
-            )}
+            ))}
           </View>
         </View>
 
-        <Text style={styles.footerNote}>
-          金額は日本円 (JPY) で表示しています | Amounts in Japanese Yen (JPY)
-        </Text>
+        <View style={styles.bankBlock}>
+          <Text style={styles.bankTitle}>振込先</Text>
+          {settings.accountName ? <Text style={styles.line}>{settings.accountName}</Text> : null}
+          {settings.bankBranch ? <Text style={styles.line}>{settings.bankBranch}</Text> : null}
+          {settings.accountTypeNumber ? <Text style={styles.line}>{settings.accountTypeNumber}</Text> : null}
+          {settings.transferNote ? <Text style={styles.line}>{settings.transferNote}</Text> : null}
+        </View>
+
+        <View style={styles.remarksBox}>
+          <Text style={styles.remarksTitle}>備考</Text>
+          {invoice.subject ? <Text style={styles.line}>件名: {invoice.subject}</Text> : null}
+          {invoice.terms ? <Text style={styles.line}>{invoice.terms}</Text> : null}
+          {invoice.remarks ? <Text style={styles.line}>{invoice.remarks}</Text> : null}
+          {invoice.replacesNo ? (
+            <Text style={styles.line}>本請求書は {invoice.replacesNo} を訂正・再発行したものです。</Text>
+          ) : null}
+        </View>
       </Page>
     </Document>
   );
