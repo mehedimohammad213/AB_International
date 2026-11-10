@@ -344,7 +344,7 @@ export default function InvoicePdfDocument({
                   <Text style={styles.summaryLabel}>{row.label}</Text>
                 </View>
                 <View style={styles.summaryValueCell}>
-                  <Text style={[styles.summaryValue, row.last ? { fontWeight: 700 } : null]}>{row.value}</Text>
+                  <Text style={[styles.summaryValue, row.last ? { fontWeight: 700 } : undefined]}>{row.value}</Text>
                 </View>
               </View>
             ))}
